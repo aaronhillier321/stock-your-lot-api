@@ -2,6 +2,7 @@ package com.stockyourlot.controller;
 
 import com.stockyourlot.dto.LoginRequest;
 import com.stockyourlot.dto.LoginResponse;
+import com.stockyourlot.entity.User;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -30,8 +31,9 @@ public class LoginController {
         );
         SecurityContextHolder.getContext().setAuthentication(authentication);
 
+        User user = (User) authentication.getPrincipal();
         return ResponseEntity.ok(
-                new LoginResponse("Login successful", request.username())
+                new LoginResponse("Login successful", user.getUsername(), user.getEmail())
         );
     }
 }
