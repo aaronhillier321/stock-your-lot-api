@@ -1,0 +1,21 @@
+# Local development only. Cert/prod use secret-based env (application-cert.yml / application-prod.yml).
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: stock-your-lot-db
+    environment:
+      POSTGRES_DB: stockyourlot
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d stockyourlot"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:

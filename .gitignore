@@ -15,3 +15,12 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Secrets / env (set these in CI or locally, never commit)
+.env
+.env.*
+!.env.example
+*secrets*
+*secret*
+application-local.yml
+application-local.properties

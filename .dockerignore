@@ -1,0 +1,13 @@
+.git
+.gitignore
+.gradle
+build
+!gradle/wrapper/gradle-wrapper.jar
+!gradle/wrapper/gradle-wrapper.properties
+*.md
+.env
+.env.*
+docker-compose*.yml
+Dockerfile
+.dockerignore
+k8s
