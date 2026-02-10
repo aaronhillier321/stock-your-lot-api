@@ -1,20 +1,19 @@
-# Build stage
-FROM eclipse-temurin:21-jdk-alpine AS builder
+# Build stage - Azul Zulu OpenJDK 21
+FROM azul/zulu-openjdk:21 AS builder
 WORKDIR /app
 
 COPY gradlew .
 COPY gradle gradle
 COPY build.gradle settings.gradle .
-RUN ./gradlew dependencies --no-daemon || true
-
 COPY src src
-RUN ./gradlew bootJar --no-daemon -x test
 
-# Run stage
-FROM eclipse-temurin:21-jre-alpine
+RUN chmod +x gradlew && ./gradlew bootJar --no-daemon -x test
+
+# Run stage - Azul Zulu OpenJDK 21 JRE
+FROM azul/zulu-openjdk:21-jre
 WORKDIR /app
 
-RUN adduser -D -u 1000 appuser
+RUN useradd -u 1000 -m appuser
 USER appuser
 
 COPY --from=builder /app/build/libs/*.jar app.jar
