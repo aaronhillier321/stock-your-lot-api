@@ -69,6 +69,7 @@ goto fail
 @rem Setup the command line
 
 set CLASSPATH=%APP_HOME%\gradle\wrapper\gradle-wrapper.jar
+if exist "%APP_HOME%\gradle\wrapper\gradle-wrapper-shared.jar" set CLASSPATH=%CLASSPATH%;%APP_HOME%\gradle\wrapper\gradle-wrapper-shared.jar
 
 
 @rem Execute Gradle
