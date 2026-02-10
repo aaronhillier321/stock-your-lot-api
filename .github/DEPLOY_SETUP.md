@@ -4,7 +4,7 @@ The **Build and Deploy to GKE** workflow runs on every push to `main`. It builds
 
 ## 1. GCP setup
 
-- **Artifact Registry:** Create a repository (e.g. `stock-your-lot`) in your project for Docker images.
+- **Artifact Registry:** The workflow creates the repository automatically if it doesn’t exist (using the same name as the variable `ARTIFACT_REGISTRY_REPO` or default `stock-your-lot`, in `GKE_REGION`). If you see **"Repository not found"**, ensure `GKE_REGION` and `GCP_PROJECT_ID` are correct and that the service account has **Artifact Registry Admin** (or **Artifact Registry Repository Administrator**) so it can create the repo.
 - **Secret Manager:** Create these secrets with your DB values (as used for Cloud SQL):
   - `POSTGRES_HOST`
   - `POSTGRES_PORT`

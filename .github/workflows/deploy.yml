@@ -5,9 +5,10 @@ on:
     branches: [main]
 
 env:
-  REGISTRY: us-docker.pkg.dev
-  # Set repo variable ARTIFACT_REGISTRY_REPO in GitHub to override (default: stock-your-lot)
+  # Artifact Registry is regional. Set variable ARTIFACT_REGISTRY_REGION if repo is in a different region than GKE (e.g. us-west1).
+  # Set variable ARTIFACT_REGISTRY_REPO to override repo name (default: stock-your-lot).
   ARTIFACT_REPO: stock-your-lot
+  ARTIFACT_REGISTRY_REGION: us-west1
 
 jobs:
   deploy:
@@ -32,11 +33,16 @@ jobs:
 
       - name: Configure Docker for Artifact Registry
         run: |
-          gcloud auth configure-docker ${{ env.REGISTRY }} --quiet
+          AR_REGION="${{ vars.ARTIFACT_REGISTRY_REGION || env.ARTIFACT_REGISTRY_REGION || secrets.GKE_REGION }}"
+          REGISTRY="${AR_REGION}-docker.pkg.dev"
+          gcloud auth configure-docker "$REGISTRY" --quiet
 
       - name: Build and push image
         run: |
-          IMAGE="${{ env.REGISTRY }}/${{ secrets.GCP_PROJECT_ID }}/${{ vars.ARTIFACT_REGISTRY_REPO || env.ARTIFACT_REPO }}/stock-your-lot-api:${{ github.sha }}"
+          AR_REGION="${{ vars.ARTIFACT_REGISTRY_REGION || env.ARTIFACT_REGISTRY_REGION || secrets.GKE_REGION }}"
+          REGISTRY="${AR_REGION}-docker.pkg.dev"
+          REPO_NAME="${{ vars.ARTIFACT_REGISTRY_REPO || env.ARTIFACT_REPO }}"
+          IMAGE="${REGISTRY}/${{ secrets.GCP_PROJECT_ID }}/${REPO_NAME}/stock-your-lot-api:${{ github.sha }}"
           docker build -t "$IMAGE" .
           docker push "$IMAGE"
           echo "IMAGE=$IMAGE" >> $GITHUB_ENV
@@ -59,6 +65,9 @@ jobs:
 
       - name: Deploy to GKE
         run: |
-          IMAGE="${{ env.REGISTRY }}/${{ secrets.GCP_PROJECT_ID }}/${{ vars.ARTIFACT_REGISTRY_REPO || env.ARTIFACT_REPO }}/stock-your-lot-api:${{ github.sha }}"
+          AR_REGION="${{ vars.ARTIFACT_REGISTRY_REGION || env.ARTIFACT_REGISTRY_REGION || secrets.GKE_REGION }}"
+          REGISTRY="${AR_REGION}-docker.pkg.dev"
+          REPO_NAME="${{ vars.ARTIFACT_REGISTRY_REPO || env.ARTIFACT_REPO }}"
+          IMAGE="${REGISTRY}/${{ secrets.GCP_PROJECT_ID }}/${REPO_NAME}/stock-your-lot-api:${{ github.sha }}"
           sed -i "s|IMAGE_PLACEHOLDER|$IMAGE|g" k8s/deployment.yaml
           kubectl apply -f k8s/deployment.yaml -f k8s/service.yaml
