@@ -7,7 +7,7 @@ COPY gradle gradle
 COPY build.gradle settings.gradle .
 COPY src src
 
-RUN chmod +x gradlew && ./gradlew bootJar --no-daemon -x test
+RUN chmod +x gradlew && ./gradlew bootJar --no-daemon
 
 # Run stage - Azul Zulu OpenJDK 21 JRE
 FROM azul/zulu-openjdk:21-jre
