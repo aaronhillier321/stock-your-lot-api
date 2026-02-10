@@ -1,0 +1,64 @@
+name: Build and Deploy to GKE
+
+on:
+  push:
+    branches: [main]
+
+env:
+  REGISTRY: us-docker.pkg.dev
+  # Set repo variable ARTIFACT_REGISTRY_REPO in GitHub to override (default: stock-your-lot)
+  ARTIFACT_REPO: stock-your-lot
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+
+      - name: Configure Docker for Artifact Registry
+        run: |
+          gcloud auth configure-docker ${{ env.REGISTRY }} --quiet
+
+      - name: Build and push image
+        run: |
+          IMAGE="${{ env.REGISTRY }}/${{ secrets.GCP_PROJECT_ID }}/${{ vars.ARTIFACT_REGISTRY_REPO || env.ARTIFACT_REPO }}/stock-your-lot-api:${{ github.sha }}"
+          docker build -t "$IMAGE" .
+          docker push "$IMAGE"
+          echo "IMAGE=$IMAGE" >> $GITHUB_ENV
+
+      - name: Get GKE credentials
+        run: |
+          gcloud container clusters get-credentials "${{ secrets.GKE_CLUSTER_NAME }}" \
+            --region "${{ secrets.GKE_REGION }}" \
+            --project "${{ secrets.GCP_PROJECT_ID }}"
+
+      - name: Create K8s secret from Secret Manager
+        run: |
+          kubectl create secret generic stock-your-lot-db-secret \
+            --from-literal=POSTGRES_HOST="$(gcloud secrets versions access latest --secret=POSTGRES_HOST --project=${{ secrets.GCP_PROJECT_ID }})" \
+            --from-literal=POSTGRES_PORT="$(gcloud secrets versions access latest --secret=POSTGRES_PORT --project=${{ secrets.GCP_PROJECT_ID }})" \
+            --from-literal=POSTGRES_DB="$(gcloud secrets versions access latest --secret=POSTGRES_DB --project=${{ secrets.GCP_PROJECT_ID }})" \
+            --from-literal=POSTGRES_USER="$(gcloud secrets versions access latest --secret=POSTGRES_USER --project=${{ secrets.GCP_PROJECT_ID }})" \
+            --from-literal=POSTGRES_PASSWORD="$(gcloud secrets versions access latest --secret=POSTGRES_PASSWORD --project=${{ secrets.GCP_PROJECT_ID }})" \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Deploy to GKE
+        run: |
+          IMAGE="${{ env.REGISTRY }}/${{ secrets.GCP_PROJECT_ID }}/${{ vars.ARTIFACT_REGISTRY_REPO || env.ARTIFACT_REPO }}/stock-your-lot-api:${{ github.sha }}"
+          sed -i "s|IMAGE_PLACEHOLDER|$IMAGE|g" k8s/deployment.yaml
+          kubectl apply -f k8s/deployment.yaml -f k8s/service.yaml
