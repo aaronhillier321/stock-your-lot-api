@@ -1,5 +1,7 @@
 package com.stockyourlot.service;
 
+import com.stockyourlot.dto.DealershipRoleDto;
+import com.stockyourlot.dto.UserWithRolesDto;
 import com.stockyourlot.entity.Dealership;
 import com.stockyourlot.entity.DealershipUser;
 import com.stockyourlot.entity.User;
@@ -11,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -54,5 +57,25 @@ public class UserService {
             userRepository.save(user);
         }
         return userRepository.findById(user.getId()).orElseThrow();
+    }
+
+    /**
+     * Returns all users with their global roles and dealership memberships.
+     */
+    @Transactional(readOnly = true)
+    public List<UserWithRolesDto> getAllUsers() {
+        return userRepository.findAllWithRolesAndDealershipUsers().stream()
+                .map(user -> new UserWithRolesDto(
+                        user.getId(),
+                        user.getUsername(),
+                        user.getEmail(),
+                        user.getRoleNames(),
+                        user.getDealershipUsers().stream()
+                                .map(du -> new DealershipRoleDto(
+                                        du.getDealership().getId(),
+                                        du.getDealership().getName(),
+                                        du.getDealershipRole()))
+                                .toList()))
+                .toList();
     }
 }

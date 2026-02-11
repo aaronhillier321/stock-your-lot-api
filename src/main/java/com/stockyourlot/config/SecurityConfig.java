@@ -24,12 +24,14 @@ import java.util.List;
 @EnableWebSecurity
 public class SecurityConfig {
 
+    private final ApiKeyAuthFilter apiKeyAuthFilter;
     private final JwtAuthFilter jwtAuthFilter;
 
     @Value("${app.cors.allowed-origins:*}")
     private String allowedOrigins;
 
-    public SecurityConfig(JwtAuthFilter jwtAuthFilter) {
+    public SecurityConfig(ApiKeyAuthFilter apiKeyAuthFilter, JwtAuthFilter jwtAuthFilter) {
+        this.apiKeyAuthFilter = apiKeyAuthFilter;
         this.jwtAuthFilter = jwtAuthFilter;
     }
 
@@ -46,7 +48,8 @@ public class SecurityConfig {
                         .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
                         .anyRequest().authenticated()
                 )
-                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(apiKeyAuthFilter, JwtAuthFilter.class);
         return http.build();
     }
 

@@ -2,11 +2,14 @@ package com.stockyourlot.controller;
 
 import com.stockyourlot.dto.AddDealershipUserRequest;
 import com.stockyourlot.dto.UserRolesResponse;
+import com.stockyourlot.dto.UserWithRolesDto;
 import com.stockyourlot.entity.User;
 import com.stockyourlot.service.UserService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/users")
@@ -16,6 +19,14 @@ public class UserController {
 
     public UserController(UserService userService) {
         this.userService = userService;
+    }
+
+    /**
+     * Get all users with their global roles and dealership memberships.
+     */
+    @GetMapping
+    public ResponseEntity<List<UserWithRolesDto>> getAllUsers() {
+        return ResponseEntity.ok(userService.getAllUsers());
     }
 
     /**
