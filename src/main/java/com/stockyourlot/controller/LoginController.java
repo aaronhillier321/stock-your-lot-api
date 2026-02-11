@@ -31,7 +31,7 @@ public class LoginController {
             return ResponseEntity.ok(response);
         } catch (BadCredentialsException e) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body(new LoginResponse("Invalid email or password", null, null, List.of(), null));
+                    .body(new LoginResponse("Invalid email or password", null, null, List.of(), List.of(), null));
         }
     }
 }

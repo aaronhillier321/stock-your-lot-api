@@ -26,9 +26,6 @@ public class User implements UserDetails {
     @Column(nullable = false, unique = true, length = 255)
     private String email;
 
-    /**
-     * Store only the bcrypt (or other) hash—never plain text.
-     */
     @Column(name = "password_hash", nullable = false, length = 255)
     private String passwordHash;
 
@@ -39,6 +36,9 @@ public class User implements UserDetails {
             inverseJoinColumns = @JoinColumn(name = "role_id")
     )
     private Set<Role> roles = new HashSet<>();
+
+    @OneToMany(mappedBy = "user", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
+    private Set<DealershipUser> dealershipUsers = new HashSet<>();
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
@@ -94,8 +94,6 @@ public class User implements UserDetails {
         return true;
     }
 
-    // --- Constructors, getters, setters ---
-
     protected User() {}
 
     public User(String username, String email, String passwordHash) {
@@ -134,6 +132,19 @@ public class User implements UserDetails {
 
     public void setRoles(Set<Role> roles) {
         this.roles = roles != null ? roles : new HashSet<>();
+    }
+
+    public Set<DealershipUser> getDealershipUsers() {
+        return dealershipUsers;
+    }
+
+    public void setDealershipUsers(Set<DealershipUser> dealershipUsers) {
+        this.dealershipUsers = dealershipUsers != null ? dealershipUsers : new HashSet<>();
+    }
+
+    /** Global role names only (for JWT / API). */
+    public List<String> getRoleNames() {
+        return roles.stream().map(Role::getName).toList();
     }
 
     public Instant getCreatedAt() {

@@ -46,8 +46,8 @@ public class AuthService {
 
         String passwordHash = passwordEncoder.encode(request.password());
         User user = new User(request.username(), request.email(), passwordHash);
-        Role defaultRole = roleRepository.findByName("ASSOCIATE")
-                .orElseThrow(() -> new IllegalStateException("Default role ASSOCIATE not found in database"));
+        Role defaultRole = roleRepository.findByName("USER")
+                .orElseThrow(() -> new IllegalStateException("Default role USER not found in database"));
         user.getRoles().add(defaultRole);
         user = userRepository.save(user);
 
@@ -67,10 +67,16 @@ public class AuthService {
                 new UsernamePasswordAuthenticationToken(user.getUsername(), request.password())
         );
         user = (User) authentication.getPrincipal();
-        List<String> roleNames = user.getRoles().stream()
-                .map(Role::getName)
+        User userWithDealerships = userRepository.findByIdWithDealershipUsers(user.getId()).orElse(user);
+        List<String> roleNames = userWithDealerships.getRoleNames();
+        List<DealershipRoleDto> dealershipRoles = userWithDealerships.getDealershipUsers().stream()
+                .map(du -> new DealershipRoleDto(
+                        du.getDealership().getId(),
+                        du.getDealership().getName(),
+                        du.getDealershipRole()))
                 .toList();
-        String token = jwtUtil.generateToken(user.getUsername(), user.getEmail(), roleNames);
-        return new LoginResponse("Login successful", user.getUsername(), user.getEmail(), roleNames, token);
+        String token = jwtUtil.generateToken(userWithDealerships.getUsername(), userWithDealerships.getEmail(), roleNames);
+        return new LoginResponse("Login successful", userWithDealerships.getUsername(), userWithDealerships.getEmail(),
+                roleNames, dealershipRoles, token);
     }
 }

@@ -7,5 +7,6 @@ public record LoginResponse(
         String username,
         String email,
         List<String> roles,
+        List<DealershipRoleDto> dealershipRoles,
         String token
 ) {}

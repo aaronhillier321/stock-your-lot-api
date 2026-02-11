@@ -1,42 +1,58 @@
 package com.stockyourlot.service;
 
-import com.stockyourlot.entity.Role;
+import com.stockyourlot.entity.Dealership;
+import com.stockyourlot.entity.DealershipUser;
 import com.stockyourlot.entity.User;
-import com.stockyourlot.repository.RoleRepository;
+import com.stockyourlot.repository.DealershipRepository;
+import com.stockyourlot.repository.DealershipUserRepository;
 import com.stockyourlot.repository.UserRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.UUID;
 
 @Service
 public class UserService {
 
-    private final UserRepository userRepository;
-    private final RoleRepository roleRepository;
+    private static final String DEFAULT_DEALERSHIP_ROLE = "ASSOCIATE";
 
-    public UserService(UserRepository userRepository, RoleRepository roleRepository) {
+    private final UserRepository userRepository;
+    private final DealershipRepository dealershipRepository;
+    private final DealershipUserRepository dealershipUserRepository;
+
+    public UserService(UserRepository userRepository,
+                       DealershipRepository dealershipRepository,
+                       DealershipUserRepository dealershipUserRepository) {
         this.userRepository = userRepository;
-        this.roleRepository = roleRepository;
+        this.dealershipRepository = dealershipRepository;
+        this.dealershipUserRepository = dealershipUserRepository;
     }
 
+    /**
+     * Add a user to a dealership with the given role (ASSOCIATE or ADMIN).
+     * Defaults to ASSOCIATE if role is null or not provided.
+     */
     @Transactional
-    public User setUserRoles(String email, List<String> roleNames) {
+    public User addUserToDealership(String email, UUID dealershipId, String role) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found: " + email));
+        Dealership dealership = dealershipRepository.findById(dealershipId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Dealership not found: " + dealershipId));
 
-        Set<Role> newRoles = new HashSet<>();
-        for (String name : roleNames != null ? roleNames : List.<String>of()) {
-            Role role = roleRepository.findByName(name)
-                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unknown role: " + name));
-            newRoles.add(role);
+        String dealershipRole = (role != null && (role.equals("ADMIN") || role.equals("ASSOCIATE")))
+                ? role : DEFAULT_DEALERSHIP_ROLE;
+
+        var existing = dealershipUserRepository.findByUser_IdAndDealership_Id(user.getId(), dealershipId);
+        if (existing.isPresent()) {
+            DealershipUser du = existing.get();
+            du.setDealershipRole(dealershipRole);
+            dealershipUserRepository.save(du);
+        } else {
+            user.getDealershipUsers().add(new DealershipUser(user, dealership, dealershipRole));
+            userRepository.save(user);
         }
-
-        user.setRoles(newRoles);
-        return userRepository.save(user);
+        return userRepository.findById(user.getId()).orElseThrow();
     }
 }
