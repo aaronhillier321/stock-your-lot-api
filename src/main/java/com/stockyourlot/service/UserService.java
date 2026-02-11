@@ -30,7 +30,7 @@ public class UserService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found: " + email));
 
         Set<Role> newRoles = new HashSet<>();
-        for (String name : roleNames != null ? roleNames : List.of()) {
+        for (String name : roleNames != null ? roleNames : List.<String>of()) {
             Role role = roleRepository.findByName(name)
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unknown role: " + name));
             newRoles.add(role);

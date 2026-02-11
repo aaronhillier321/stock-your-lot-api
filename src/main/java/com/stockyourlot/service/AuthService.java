@@ -7,6 +7,7 @@ import com.stockyourlot.entity.User;
 import com.stockyourlot.repository.RoleRepository;
 import com.stockyourlot.repository.UserRepository;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -60,10 +61,12 @@ public class AuthService {
     }
 
     public LoginResponse login(LoginRequest request) {
+        User user = userRepository.findByEmail(request.email())
+                .orElseThrow(() -> new BadCredentialsException("Invalid email or password"));
         Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(request.username(), request.password())
+                new UsernamePasswordAuthenticationToken(user.getUsername(), request.password())
         );
-        User user = (User) authentication.getPrincipal();
+        user = (User) authentication.getPrincipal();
         List<String> roleNames = user.getRoles().stream()
                 .map(Role::getName)
                 .toList();
