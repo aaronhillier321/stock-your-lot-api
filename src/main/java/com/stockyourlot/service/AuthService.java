@@ -2,7 +2,9 @@ package com.stockyourlot.service;
 
 import com.stockyourlot.config.JwtUtil;
 import com.stockyourlot.dto.*;
+import com.stockyourlot.entity.Role;
 import com.stockyourlot.entity.User;
+import com.stockyourlot.repository.RoleRepository;
 import com.stockyourlot.repository.UserRepository;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -10,19 +12,24 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
+
 @Service
 public class AuthService {
 
     private final UserRepository userRepository;
+    private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
     private final JwtUtil jwtUtil;
 
     public AuthService(UserRepository userRepository,
+                        RoleRepository roleRepository,
                         PasswordEncoder passwordEncoder,
                         AuthenticationManager authenticationManager,
                         JwtUtil jwtUtil) {
         this.userRepository = userRepository;
+        this.roleRepository = roleRepository;
         this.passwordEncoder = passwordEncoder;
         this.authenticationManager = authenticationManager;
         this.jwtUtil = jwtUtil;
@@ -37,7 +44,10 @@ public class AuthService {
         }
 
         String passwordHash = passwordEncoder.encode(request.password());
-        User user = new User(request.username(), request.email(), passwordHash, "USER");
+        User user = new User(request.username(), request.email(), passwordHash);
+        Role defaultRole = roleRepository.findByName("ASSOCIATE")
+                .orElseThrow(() -> new IllegalStateException("Default role ASSOCIATE not found in database"));
+        user.getRoles().add(defaultRole);
         user = userRepository.save(user);
 
         RegisterResponse response = new RegisterResponse(
@@ -54,7 +64,10 @@ public class AuthService {
                 new UsernamePasswordAuthenticationToken(request.username(), request.password())
         );
         User user = (User) authentication.getPrincipal();
-        String token = jwtUtil.generateToken(user.getUsername(), user.getEmail());
-        return new LoginResponse("Login successful", user.getUsername(), user.getEmail(), token);
+        List<String> roleNames = user.getRoles().stream()
+                .map(Role::getName)
+                .toList();
+        String token = jwtUtil.generateToken(user.getUsername(), user.getEmail(), roleNames);
+        return new LoginResponse("Login successful", user.getUsername(), user.getEmail(), roleNames, token);
     }
 }
