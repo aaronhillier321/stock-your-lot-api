@@ -26,8 +26,11 @@ public class User implements UserDetails {
     @Column(nullable = false, unique = true, length = 255)
     private String email;
 
-    @Column(name = "password_hash", nullable = false, length = 255)
+    @Column(name = "password_hash", length = 255)
     private String passwordHash;
+
+    @Column(name = "status", nullable = false, length = 20)
+    private String status = "ACTIVE";
 
     @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(
@@ -66,7 +69,7 @@ public class User implements UserDetails {
 
     @Override
     public String getPassword() {
-        return passwordHash;
+        return passwordHash != null ? passwordHash : "";
     }
 
     @Override
@@ -91,7 +94,7 @@ public class User implements UserDetails {
 
     @Override
     public boolean isEnabled() {
-        return true;
+        return "ACTIVE".equals(status);
     }
 
     protected User() {}
@@ -100,6 +103,14 @@ public class User implements UserDetails {
         this.username = username;
         this.email = email;
         this.passwordHash = passwordHash;
+        this.status = "ACTIVE";
+    }
+
+    public User(String username, String email, String passwordHash, String status) {
+        this.username = username;
+        this.email = email;
+        this.passwordHash = passwordHash;
+        this.status = status != null ? status : "ACTIVE";
     }
 
     public UUID getId() {
@@ -124,6 +135,14 @@ public class User implements UserDetails {
 
     public void setPasswordHash(String passwordHash) {
         this.passwordHash = passwordHash;
+    }
+
+    public String getStatus() {
+        return status;
+    }
+
+    public void setStatus(String status) {
+        this.status = status != null ? status : "ACTIVE";
     }
 
     public Set<Role> getRoles() {
