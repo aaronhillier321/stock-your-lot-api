@@ -1,6 +1,7 @@
 package com.stockyourlot.controller;
 
 import com.stockyourlot.dto.AddDealershipUserRequest;
+import com.stockyourlot.dto.AddRoleRequest;
 import com.stockyourlot.dto.UserRolesResponse;
 import com.stockyourlot.dto.UserWithRolesDto;
 import com.stockyourlot.entity.User;
@@ -27,6 +28,21 @@ public class UserController {
     @GetMapping
     public ResponseEntity<List<UserWithRolesDto>> getAllUsers() {
         return ResponseEntity.ok(userService.getAllUsers());
+    }
+
+    /**
+     * Add a global role (USER, SALES_ASSOCIATE, SALES_ADMIN) to a user.
+     */
+    @PostMapping("/roles")
+    public ResponseEntity<UserRolesResponse> addRoleToUser(
+            @Valid @RequestBody AddRoleRequest request) {
+        User user = userService.addRoleToUser(request.email(), request.role());
+        return ResponseEntity.ok(new UserRolesResponse(
+                user.getId(),
+                user.getUsername(),
+                user.getEmail(),
+                user.getRoleNames()
+        ));
     }
 
     /**

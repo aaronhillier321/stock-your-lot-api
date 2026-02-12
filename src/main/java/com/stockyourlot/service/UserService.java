@@ -4,9 +4,11 @@ import com.stockyourlot.dto.DealershipRoleDto;
 import com.stockyourlot.dto.UserWithRolesDto;
 import com.stockyourlot.entity.Dealership;
 import com.stockyourlot.entity.DealershipUser;
+import com.stockyourlot.entity.Role;
 import com.stockyourlot.entity.User;
 import com.stockyourlot.repository.DealershipRepository;
 import com.stockyourlot.repository.DealershipUserRepository;
+import com.stockyourlot.repository.RoleRepository;
 import com.stockyourlot.repository.UserRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -20,17 +22,39 @@ import java.util.UUID;
 public class UserService {
 
     private static final String DEFAULT_DEALERSHIP_ROLE = "ASSOCIATE";
+    private static final java.util.Set<String> GLOBAL_ROLES = java.util.Set.of("USER", "SALES_ASSOCIATE", "SALES_ADMIN");
 
     private final UserRepository userRepository;
+    private final RoleRepository roleRepository;
     private final DealershipRepository dealershipRepository;
     private final DealershipUserRepository dealershipUserRepository;
 
     public UserService(UserRepository userRepository,
+                       RoleRepository roleRepository,
                        DealershipRepository dealershipRepository,
                        DealershipUserRepository dealershipUserRepository) {
         this.userRepository = userRepository;
+        this.roleRepository = roleRepository;
         this.dealershipRepository = dealershipRepository;
         this.dealershipUserRepository = dealershipUserRepository;
+    }
+
+    /**
+     * Add a global role (USER, SALES_ASSOCIATE, SALES_ADMIN) to a user.
+     * Idempotent: if the user already has the role, no error.
+     */
+    @Transactional
+    public User addRoleToUser(String email, String roleName) {
+        if (!GLOBAL_ROLES.contains(roleName)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Invalid role. Must be one of: USER, SALES_ASSOCIATE, SALES_ADMIN");
+        }
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found: " + email));
+        Role role = roleRepository.findByName(roleName)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unknown role: " + roleName));
+        user.getRoles().add(role);
+        return userRepository.save(user);
     }
 
     /**
