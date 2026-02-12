@@ -49,6 +49,12 @@ spec:
                 secretKeyRef:
                   name: stock-your-lot-db-secret
                   key: POSTGRES_PASSWORD
+            # Gmail app password for invite emails (from GCP Secret Manager → K8s secret)
+            - name: GMAIL_APP_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: stock-your-lot-mail-secret
+                  key: GMAIL_APP_PASSWORD
           readinessProbe:
             httpGet:
               path: /actuator/health

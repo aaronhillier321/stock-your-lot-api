@@ -54,7 +54,7 @@ jobs:
             --region "${{ secrets.GKE_REGION }}" \
             --project "${{ secrets.GCP_PROJECT_ID }}"
 
-      - name: Create K8s secret from Secret Manager
+      - name: Create K8s secrets from Secret Manager
         run: |
           kubectl create secret generic stock-your-lot-db-secret \
             --from-literal=POSTGRES_HOST="$(gcloud secrets versions access latest --secret=POSTGRES_HOST --project=${{ secrets.GCP_PROJECT_ID }})" \
@@ -62,6 +62,9 @@ jobs:
             --from-literal=POSTGRES_DB="$(gcloud secrets versions access latest --secret=POSTGRES_DB --project=${{ secrets.GCP_PROJECT_ID }})" \
             --from-literal=POSTGRES_USER="$(gcloud secrets versions access latest --secret=POSTGRES_USER --project=${{ secrets.GCP_PROJECT_ID }})" \
             --from-literal=POSTGRES_PASSWORD="$(gcloud secrets versions access latest --secret=POSTGRES_PASSWORD --project=${{ secrets.GCP_PROJECT_ID }})" \
+            --dry-run=client -o yaml | kubectl apply -f -
+          kubectl create secret generic stock-your-lot-mail-secret \
+            --from-literal=GMAIL_APP_PASSWORD="$(gcloud secrets versions access latest --secret=GMAIL_APP_PASSWORD --project=${{ secrets.GCP_PROJECT_ID }})" \
             --dry-run=client -o yaml | kubectl apply -f -
 
       - name: Deploy to GKE

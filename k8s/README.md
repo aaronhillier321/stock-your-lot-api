@@ -22,6 +22,18 @@
      --from-literal=POSTGRES_PASSWORD=...
    ```
 
+   Create the mail secret (for invite emails). To **pull the value from GCP Secret Manager** (recommended):
+   ```bash
+   # Replace PROJECT_ID with your GCP project ID. The secret name in Secret Manager must match (e.g. GMAIL_APP_PASSWORD).
+   kubectl create secret generic stock-your-lot-mail-secret \
+     --from-literal=GMAIL_APP_PASSWORD="$(gcloud secrets versions access latest --secret=GMAIL_APP_PASSWORD --project=PROJECT_ID)"
+   ```
+   Or create it with a literal value (e.g. in CI from a pipeline secret):
+   ```bash
+   kubectl create secret generic stock-your-lot-mail-secret \
+     --from-literal=GMAIL_APP_PASSWORD=your-app-password
+   ```
+
 3. Replace image in `deployment.yaml` and apply:
    ```bash
    sed -i "s|IMAGE_PLACEHOLDER|gcr.io/PROJECT_ID/stock-your-lot-api:IMAGE_TAG|g" k8s/deployment.yaml
