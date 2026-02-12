@@ -84,6 +84,20 @@ public class UserService {
     }
 
     /**
+     * Remove a user completely. Deletes the user and all related data (roles, dealership
+     * memberships, and any invites where they are the invited user). Invites where they
+     * were the inviter will have inviter_id set to null by the DB.
+     *
+     * @throws ResponseStatusException 404 if user not found
+     */
+    @Transactional
+    public void deleteUser(UUID userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found: " + userId));
+        userRepository.delete(user);
+    }
+
+    /**
      * Returns all users with their global roles and dealership memberships.
      */
     @Transactional(readOnly = true)

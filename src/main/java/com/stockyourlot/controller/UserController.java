@@ -11,6 +11,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/users")
@@ -62,5 +63,15 @@ public class UserController {
                 user.getEmail(),
                 user.getRoleNames()
         ));
+    }
+
+    /**
+     * Remove a user completely. Deletes the user and all related data (roles, dealership
+     * memberships, invites where they are the invited user). Requires authentication.
+     */
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteUser(@PathVariable UUID id) {
+        userService.deleteUser(id);
+        return ResponseEntity.noContent().build();
     }
 }
