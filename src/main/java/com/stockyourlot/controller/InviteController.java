@@ -6,6 +6,8 @@ import com.stockyourlot.dto.InviteValidateResponse;
 import com.stockyourlot.entity.User;
 import com.stockyourlot.service.InviteService;
 import jakarta.validation.Valid;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -14,6 +16,8 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/invites")
 public class InviteController {
+
+    private static final Logger log = LoggerFactory.getLogger(InviteController.class);
 
     private final InviteService inviteService;
 
@@ -29,8 +33,10 @@ public class InviteController {
     public ResponseEntity<Void> createInvite(
             @Valid @RequestBody InviteRequest request,
             @AuthenticationPrincipal Object principal) {
+        log.info("Create invite request: email={}, dealershipId={}", request.email(), request.dealershipId());
         User inviter = principal instanceof User ? (User) principal : null;
         inviteService.invite(request.email(), request.dealershipId(), inviter);
+        log.info("Invite created and email sent for email={}", request.email());
         return ResponseEntity.status(HttpStatus.CREATED).build();
     }
 
@@ -40,7 +46,10 @@ public class InviteController {
      */
     @GetMapping("/validate")
     public ResponseEntity<InviteValidateResponse> validateInvite(@RequestParam String token) {
-        return ResponseEntity.ok(inviteService.validateToken(token));
+        log.info("Validate invite token request (token length={})", token != null ? token.length() : 0);
+        InviteValidateResponse response = inviteService.validateToken(token);
+        log.info("Validate invite result: valid={}, email={}", response.valid(), response.email());
+        return ResponseEntity.ok(response);
     }
 
     /**
@@ -49,7 +58,9 @@ public class InviteController {
      */
     @PostMapping("/accept")
     public ResponseEntity<Void> acceptInvite(@Valid @RequestBody AcceptInviteRequest request) {
+        log.info("Accept invite request (token length={})", request.token() != null ? request.token().length() : 0);
         inviteService.acceptInvite(request.token(), request.password());
+        log.info("Invite accepted successfully");
         return ResponseEntity.ok().build();
     }
 }

@@ -37,6 +37,7 @@ public class SmtpInviteEmailService implements InviteEmailService {
         if (fromEmail == null || fromEmail.isBlank()) {
             throw new IllegalStateException("app.invite.email.from must be set when using SMTP invite emails");
         }
+        log.debug("Sending invite email to {} via SMTP", toEmail);
         try {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");

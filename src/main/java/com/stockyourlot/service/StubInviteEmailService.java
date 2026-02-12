@@ -17,6 +17,7 @@ public class StubInviteEmailService implements InviteEmailService {
 
     @Override
     public void sendInviteEmail(String toEmail, String acceptUrl) {
+        log.debug("Stub invite email: preparing to log (to={})", toEmail);
         log.info("=== INVITE EMAIL (stub) === To: {} | Accept link: {}", toEmail, acceptUrl);
     }
 }

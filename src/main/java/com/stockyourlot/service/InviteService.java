@@ -11,6 +11,8 @@ import com.stockyourlot.repository.DealershipRepository;
 import com.stockyourlot.repository.InviteRepository;
 import com.stockyourlot.repository.RoleRepository;
 import com.stockyourlot.repository.UserRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -24,6 +26,7 @@ import java.util.UUID;
 @Service
 public class InviteService {
 
+    private static final Logger log = LoggerFactory.getLogger(InviteService.class);
     private static final int INVITE_VALID_DAYS = 7;
 
     private final UserRepository userRepository;
@@ -65,32 +68,44 @@ public class InviteService {
      */
     @Transactional
     public void invite(String email, UUID dealershipId, User inviter) {
+        log.debug("invite: email={}, dealershipId={}, inviter={}", email, dealershipId, inviter != null ? inviter.getEmail() : "null");
         email = email != null ? email.trim().toLowerCase() : "";
         if (email.isEmpty()) {
+            log.warn("invite: rejected - empty email");
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email is required");
         }
         Dealership dealership = dealershipRepository.findById(dealershipId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Dealership not found: " + dealershipId));
+                .orElseThrow(() -> {
+                    log.warn("invite: dealership not found, id={}", dealershipId);
+                    return new ResponseStatusException(HttpStatus.NOT_FOUND, "Dealership not found: " + dealershipId);
+                });
+        log.debug("invite: dealership found id={}, name={}", dealership.getId(), dealership.getName());
 
         User existing = userRepository.findByEmail(email).orElse(null);
         if (existing != null && "ACTIVE".equals(existing.getStatus())) {
+            log.warn("invite: rejected - user already active, email={}", email);
             throw new ResponseStatusException(HttpStatus.CONFLICT, "A user with this email is already registered");
         }
 
         User user;
         if (existing != null && "PENDING".equals(existing.getStatus())) {
             user = existing;
-            // Expire any existing pending invites for this email
-            inviteRepository.findByEmailAndStatus(email, InviteStatus.PENDING).forEach(inv -> {
-                inv.setStatus(InviteStatus.EXPIRED);
-                inviteRepository.save(inv);
-            });
+            log.debug("invite: reusing pending user id={}", user.getId());
+            List<Invite> expired = inviteRepository.findByEmailAndStatus(email, InviteStatus.PENDING);
+            if (!expired.isEmpty()) {
+                log.info("invite: expiring {} existing pending invite(s) for email={}", expired.size(), email);
+                expired.forEach(inv -> {
+                    inv.setStatus(InviteStatus.EXPIRED);
+                    inviteRepository.save(inv);
+                });
+            }
         } else {
             user = new User(email, email, null, "PENDING");
             Role userRole = roleRepository.findByName("USER")
                     .orElseThrow(() -> new IllegalStateException("Default role USER not found"));
             user.getRoles().add(userRole);
             user = userRepository.save(user);
+            log.info("invite: created pending user id={} for email={}", user.getId(), email);
         }
 
         String rawToken = inviteTokenUtil.generateToken();
@@ -99,9 +114,12 @@ public class InviteService {
 
         Invite invite = new Invite(email, tokenHash, inviter, user, dealership, expiresAt);
         inviteRepository.save(invite);
+        log.info("invite: created invite id={} for email={}, dealershipId={}, expiresAt={}", invite.getId(), email, dealershipId, expiresAt);
 
         String acceptUrl = baseUrl + "/accept-invite?token=" + rawToken;
+        log.debug("invite: sending email to {}", email);
         inviteEmailService.sendInviteEmail(email, acceptUrl);
+        log.info("invite: completed for email={}", email);
     }
 
     /**
@@ -109,21 +127,27 @@ public class InviteService {
      */
     @Transactional(readOnly = true)
     public InviteValidateResponse validateToken(String token) {
+        log.debug("validateToken: checking token");
         if (token == null || token.isBlank()) {
+            log.info("validateToken: invalid - token missing");
             return InviteValidateResponse.invalid("Token is required");
         }
         String hash = inviteTokenUtil.hashToken(token.trim());
         Invite invite = inviteRepository.findByTokenHash(hash).orElse(null);
         if (invite == null) {
+            log.info("validateToken: invalid - no invite found for token");
             return InviteValidateResponse.invalid("Invalid or unknown invite link");
         }
         if (invite.getStatus() != InviteStatus.PENDING) {
+            log.info("validateToken: invalid - invite not pending, status={}, inviteId={}", invite.getStatus(), invite.getId());
             return InviteValidateResponse.invalid("This invite has already been used");
         }
         if (Instant.now().isAfter(invite.getExpiresAt())) {
+            log.info("validateToken: invalid - invite expired, inviteId={}, expiresAt={}", invite.getId(), invite.getExpiresAt());
             return InviteValidateResponse.invalid("This invite link has expired");
         }
         Dealership d = invite.getDealership();
+        log.info("validateToken: valid for email={}, dealershipId={}, dealershipName={}", invite.getEmail(), d.getId(), d.getName());
         return InviteValidateResponse.valid(invite.getEmail(), d.getId(), d.getName());
     }
 
@@ -132,16 +156,24 @@ public class InviteService {
      */
     @Transactional
     public void acceptInvite(String token, String password) {
+        log.debug("acceptInvite: processing request");
         if (token == null || token.isBlank()) {
+            log.warn("acceptInvite: rejected - token missing");
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Token is required");
         }
         String hash = inviteTokenUtil.hashToken(token.trim());
         Invite invite = inviteRepository.findByTokenHash(hash)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid or unknown invite link"));
+                .orElseThrow(() -> {
+                    log.warn("acceptInvite: invalid - no invite found for token");
+                    return new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid or unknown invite link");
+                });
+        log.debug("acceptInvite: invite found id={}, email={}", invite.getId(), invite.getEmail());
         if (invite.getStatus() != InviteStatus.PENDING) {
+            log.warn("acceptInvite: rejected - invite not pending, status={}, inviteId={}", invite.getStatus(), invite.getId());
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "This invite has already been used");
         }
         if (Instant.now().isAfter(invite.getExpiresAt())) {
+            log.warn("acceptInvite: rejected - invite expired, inviteId={}", invite.getId());
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "This invite link has expired");
         }
 
@@ -149,11 +181,13 @@ public class InviteService {
         user.setPasswordHash(passwordEncoder.encode(password));
         user.setStatus("ACTIVE");
         userRepository.save(user);
+        log.info("acceptInvite: activated user id={}, email={}", user.getId(), user.getEmail());
 
         invite.setStatus(InviteStatus.ACCEPTED);
         inviteRepository.save(invite);
+        log.debug("acceptInvite: marked invite id={} as ACCEPTED", invite.getId());
 
-        // Add the user to the invite's dealership as ASSOCIATE
         userService.addUserToDealership(user.getEmail(), invite.getDealership().getId(), "ASSOCIATE");
+        log.info("acceptInvite: added user to dealership id={}, invite flow complete for email={}", invite.getDealership().getId(), user.getEmail());
     }
 }
