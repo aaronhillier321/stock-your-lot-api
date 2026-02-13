@@ -10,6 +10,7 @@ import java.util.UUID;
 @Entity
 @Table(name = "purchases", indexes = {
         @Index(name = "idx_purchases_buyer_id", columnList = "buyer_id"),
+        @Index(name = "idx_purchases_dealership_id", columnList = "dealership_id"),
         @Index(name = "idx_purchases_created_at", columnList = "created_at")
 })
 public class Purchase {
@@ -22,8 +23,9 @@ public class Purchase {
     @JoinColumn(name = "buyer_id", nullable = false)
     private User buyer;
 
-    @Column(length = 255)
-    private String dealership;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "dealership_id")
+    private Dealership dealership;
 
     @Column(name = "purchase_date")
     private LocalDate purchaseDate;
@@ -89,11 +91,11 @@ public class Purchase {
         this.buyer = buyer;
     }
 
-    public String getDealership() {
+    public Dealership getDealership() {
         return dealership;
     }
 
-    public void setDealership(String dealership) {
+    public void setDealership(Dealership dealership) {
         this.dealership = dealership;
     }
 

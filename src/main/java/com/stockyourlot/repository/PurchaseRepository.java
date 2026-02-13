@@ -9,4 +9,6 @@ import java.util.UUID;
 public interface PurchaseRepository extends JpaRepository<Purchase, UUID> {
 
     List<Purchase> findByBuyerIdOrderByCreatedAtDesc(UUID buyerId);
+
+    List<Purchase> findByDealership_IdOrderByCreatedAtDesc(UUID dealershipId);
 }

@@ -2,7 +2,9 @@ package com.stockyourlot.controller;
 
 import com.stockyourlot.dto.CreateDealershipRequest;
 import com.stockyourlot.dto.DealershipResponse;
+import com.stockyourlot.dto.PurchaseResponse;
 import com.stockyourlot.service.DealershipService;
+import com.stockyourlot.service.PurchaseService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -16,9 +18,11 @@ import java.util.UUID;
 public class DealershipController {
 
     private final DealershipService dealershipService;
+    private final PurchaseService purchaseService;
 
-    public DealershipController(DealershipService dealershipService) {
+    public DealershipController(DealershipService dealershipService, PurchaseService purchaseService) {
         this.dealershipService = dealershipService;
+        this.purchaseService = purchaseService;
     }
 
     @PostMapping
@@ -31,6 +35,11 @@ public class DealershipController {
     @GetMapping("/{id}")
     public ResponseEntity<DealershipResponse> getDealershipById(@PathVariable UUID id) {
         return ResponseEntity.ok(dealershipService.getById(id));
+    }
+
+    @GetMapping("/{id}/purchases")
+    public ResponseEntity<List<PurchaseResponse>> getDealershipPurchases(@PathVariable UUID id) {
+        return ResponseEntity.ok(purchaseService.getByDealershipId(id));
     }
 
     @GetMapping

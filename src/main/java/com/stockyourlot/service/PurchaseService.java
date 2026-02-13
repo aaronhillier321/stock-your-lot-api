@@ -2,12 +2,16 @@ package com.stockyourlot.service;
 
 import com.stockyourlot.dto.CreatePurchaseRequest;
 import com.stockyourlot.dto.PurchaseResponse;
+import com.stockyourlot.entity.Dealership;
 import com.stockyourlot.entity.Purchase;
 import com.stockyourlot.entity.User;
+import com.stockyourlot.repository.DealershipRepository;
 import com.stockyourlot.repository.PurchaseRepository;
 import org.springframework.data.domain.Sort;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 import java.util.UUID;
@@ -16,9 +20,11 @@ import java.util.UUID;
 public class PurchaseService {
 
     private final PurchaseRepository purchaseRepository;
+    private final DealershipRepository dealershipRepository;
 
-    public PurchaseService(PurchaseRepository purchaseRepository) {
+    public PurchaseService(PurchaseRepository purchaseRepository, DealershipRepository dealershipRepository) {
         this.purchaseRepository = purchaseRepository;
+        this.dealershipRepository = dealershipRepository;
     }
 
     @Transactional(readOnly = true)
@@ -35,11 +41,20 @@ public class PurchaseService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
+    public List<PurchaseResponse> getByDealershipId(UUID dealershipId) {
+        return purchaseRepository.findByDealership_IdOrderByCreatedAtDesc(dealershipId).stream()
+                .map(this::toResponse)
+                .toList();
+    }
+
     @Transactional
     public PurchaseResponse create(CreatePurchaseRequest request, User buyer) {
+        Dealership dealership = dealershipRepository.findById(request.dealershipId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Dealership not found: " + request.dealershipId()));
         Purchase p = new Purchase();
         p.setBuyer(buyer);
-        p.setDealership(request.dealership());
+        p.setDealership(dealership);
         p.setPurchaseDate(request.date());
         p.setAuctionPlatform(request.auctionPlatform());
         p.setVin(request.vin());
@@ -55,10 +70,12 @@ public class PurchaseService {
     }
 
     private PurchaseResponse toResponse(Purchase p) {
+        Dealership d = p.getDealership();
         return new PurchaseResponse(
                 p.getId(),
                 p.getBuyer().getId(),
-                p.getDealership(),
+                d != null ? d.getId() : null,
+                d != null ? d.getName() : null,
                 p.getPurchaseDate(),
                 p.getAuctionPlatform(),
                 p.getVin(),

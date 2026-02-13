@@ -1,13 +1,15 @@
 package com.stockyourlot.dto;
 
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.UUID;
 
 public record CreatePurchaseRequest(
-        @Size(max = 255)
-        String dealership,
+        @NotNull(message = "dealershipId must not be null")
+        UUID dealershipId,
         LocalDate date,
         @Size(max = 100)
         String auctionPlatform,
