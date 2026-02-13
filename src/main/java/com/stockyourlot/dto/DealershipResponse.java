@@ -12,5 +12,6 @@ public record DealershipResponse(
         String state,
         String postalCode,
         String phone,
-        Instant createdAt
+        Instant createdAt,
+        long purchaseCount
 ) {}
