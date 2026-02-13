@@ -8,6 +8,8 @@ import java.util.UUID;
 public record PurchaseResponse(
         UUID id,
         UUID buyerId,
+        String buyerUsername,
+        String buyerEmail,
         UUID dealershipId,
         String dealershipName,
         LocalDate date,

@@ -71,9 +71,12 @@ public class PurchaseService {
 
     private PurchaseResponse toResponse(Purchase p) {
         Dealership d = p.getDealership();
+        User buyer = p.getBuyer();
         return new PurchaseResponse(
                 p.getId(),
-                p.getBuyer().getId(),
+                buyer != null ? buyer.getId() : null,
+                buyer != null ? buyer.getUsername() : null,
+                buyer != null ? buyer.getEmail() : null,
                 d != null ? d.getId() : null,
                 d != null ? d.getName() : null,
                 p.getPurchaseDate(),
