@@ -1,0 +1,24 @@
+package com.stockyourlot.dto;
+
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.util.UUID;
+
+public record PurchaseResponse(
+        UUID id,
+        UUID buyerId,
+        String dealership,
+        LocalDate date,
+        String auctionPlatform,
+        String vin,
+        String ymmt,
+        Integer miles,
+        BigDecimal purchasePrice,
+        String vehicleYear,
+        String vehicleMake,
+        String vehicleModel,
+        String vehicleTrimLevel,
+        BigDecimal transportQuote,
+        Instant createdAt
+) {}
