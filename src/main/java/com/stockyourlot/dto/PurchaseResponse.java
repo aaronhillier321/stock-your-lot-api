@@ -12,7 +12,6 @@ public record PurchaseResponse(
         LocalDate date,
         String auctionPlatform,
         String vin,
-        String ymmt,
         Integer miles,
         BigDecimal purchasePrice,
         String vehicleYear,

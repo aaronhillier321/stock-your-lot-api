@@ -43,7 +43,6 @@ public class PurchaseService {
         p.setPurchaseDate(request.date());
         p.setAuctionPlatform(request.auctionPlatform());
         p.setVin(request.vin());
-        p.setYmmt(request.ymmt());
         p.setMiles(request.miles());
         p.setPurchasePrice(request.purchasePrice());
         p.setVehicleYear(request.vehicleYear());
@@ -63,7 +62,6 @@ public class PurchaseService {
                 p.getPurchaseDate(),
                 p.getAuctionPlatform(),
                 p.getVin(),
-                p.getYmmt(),
                 p.getMiles(),
                 p.getPurchasePrice(),
                 p.getVehicleYear(),

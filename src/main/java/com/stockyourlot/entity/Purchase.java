@@ -34,9 +34,6 @@ public class Purchase {
     @Column(length = 17)
     private String vin;
 
-    @Column(length = 255)
-    private String ymmt;
-
     @Column(name = "miles")
     private Integer miles;
 
@@ -122,14 +119,6 @@ public class Purchase {
 
     public void setVin(String vin) {
         this.vin = vin;
-    }
-
-    public String getYmmt() {
-        return ymmt;
-    }
-
-    public void setYmmt(String ymmt) {
-        this.ymmt = ymmt;
     }
 
     public Integer getMiles() {

@@ -13,8 +13,6 @@ public record CreatePurchaseRequest(
         String auctionPlatform,
         @Size(max = 17)
         String vin,
-        @Size(max = 255)
-        String ymmt,
         Integer miles,
         BigDecimal purchasePrice,
         @Size(max = 10)
