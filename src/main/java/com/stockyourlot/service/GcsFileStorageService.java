@@ -3,6 +3,7 @@ package com.stockyourlot.service;
 import com.google.cloud.storage.BlobId;
 import com.google.cloud.storage.BlobInfo;
 import com.google.cloud.storage.Storage;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -11,6 +12,7 @@ import java.util.Optional;
 
 /**
  * Uploads file content to Google Cloud Storage. Supports pending paths for extract flow.
+ * Storage is optional (null when credentials file is not available); GCS operations are no-ops then.
  */
 @Service
 public class GcsFileStorageService {
@@ -23,7 +25,7 @@ public class GcsFileStorageService {
     @Value("${app.gcs.bucket:}")
     private String bucketName;
 
-    public GcsFileStorageService(Storage storage) {
+    public GcsFileStorageService(@Autowired(required = false) Storage storage) {
         this.storage = storage;
     }
 
@@ -32,7 +34,7 @@ public class GcsFileStorageService {
     }
 
     public boolean isBucketConfigured() {
-        return bucketName != null && !bucketName.isBlank();
+        return storage != null && bucketName != null && !bucketName.isBlank();
     }
 
     /**
@@ -40,7 +42,7 @@ public class GcsFileStorageService {
      */
     public void upload(String objectPath, byte[] content, String contentType) throws IOException {
         if (!isBucketConfigured()) {
-            throw new IllegalStateException("app.gcs.bucket must be set to upload files");
+            throw new IllegalStateException("GCS is not configured (app.gcs.bucket and credentials required)");
         }
         BlobId blobId = BlobId.of(bucketName, objectPath);
         BlobInfo blobInfo = BlobInfo.newBuilder(blobId)
@@ -67,6 +69,7 @@ public class GcsFileStorageService {
      */
     public Optional<byte[]> getContent(String objectPath) {
         if (!isBucketConfigured()) return Optional.empty();
+        if (storage == null) return Optional.empty();
         var blob = storage.get(BlobId.of(bucketName, objectPath));
         if (blob == null) return Optional.empty();
         return Optional.of(blob.getContent());
@@ -76,7 +79,7 @@ public class GcsFileStorageService {
      * Delete an object if it exists.
      */
     public void delete(String objectPath) {
-        if (!isBucketConfigured()) return;
+        if (!isBucketConfigured() || storage == null) return;
         storage.delete(BlobId.of(bucketName, objectPath));
     }
 }
