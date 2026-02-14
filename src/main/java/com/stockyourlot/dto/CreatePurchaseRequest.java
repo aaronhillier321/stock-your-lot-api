@@ -10,12 +10,16 @@ import java.util.UUID;
 public record CreatePurchaseRequest(
         @NotNull(message = "dealershipId must not be null")
         UUID dealershipId,
+        @NotNull(message = "date must not be null")
         LocalDate date,
+        @NotNull(message = "auctionPlatform must not be null")
         @Size(max = 100)
         String auctionPlatform,
+        @NotNull(message = "vin must not be null")
         @Size(max = 17)
         String vin,
         Integer miles,
+        @NotNull(message = "purchasePrice must not be null")
         BigDecimal purchasePrice,
         @Size(max = 10)
         String vehicleYear,

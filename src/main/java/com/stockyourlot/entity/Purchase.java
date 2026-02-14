@@ -24,22 +24,22 @@ public class Purchase {
     private User buyer;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "dealership_id")
+    @JoinColumn(name = "dealership_id", nullable = false)
     private Dealership dealership;
 
-    @Column(name = "purchase_date")
+    @Column(name = "purchase_date", nullable = false)
     private LocalDate purchaseDate;
 
-    @Column(name = "auction_platform", length = 100)
+    @Column(name = "auction_platform", length = 100, nullable = false)
     private String auctionPlatform;
 
-    @Column(length = 17)
+    @Column(length = 17, nullable = false)
     private String vin;
 
     @Column(name = "miles")
     private Integer miles;
 
-    @Column(name = "purchase_price", precision = 12, scale = 2)
+    @Column(name = "purchase_price", precision = 12, scale = 2, nullable = false)
     private BigDecimal purchasePrice;
 
     @Column(name = "vehicle_year", length = 10)
