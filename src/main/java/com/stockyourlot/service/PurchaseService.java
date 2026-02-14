@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.UUID;
 
@@ -22,10 +23,13 @@ public class PurchaseService {
 
     private final PurchaseRepository purchaseRepository;
     private final DealershipRepository dealershipRepository;
+    private final FileMetadataService fileMetadataService;
 
-    public PurchaseService(PurchaseRepository purchaseRepository, DealershipRepository dealershipRepository) {
+    public PurchaseService(PurchaseRepository purchaseRepository, DealershipRepository dealershipRepository,
+                           FileMetadataService fileMetadataService) {
         this.purchaseRepository = purchaseRepository;
         this.dealershipRepository = dealershipRepository;
+        this.fileMetadataService = fileMetadataService;
     }
 
     @Transactional(readOnly = true)
@@ -74,6 +78,13 @@ public class PurchaseService {
         p.setVehicleTrimLevel(request.vehicleTrimLevel());
         p.setTransportQuote(request.transportQuote());
         p = purchaseRepository.save(p);
+        if (request.uploadToken() != null) {
+            try {
+                fileMetadataService.claimPendingFiles(request.uploadToken().toString(), p);
+            } catch (IOException e) {
+                throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to claim pending files: " + e.getMessage());
+            }
+        }
         return toResponse(p);
     }
 

@@ -25,5 +25,7 @@ public record CreatePurchaseRequest(
         String vehicleModel,
         @Size(max = 100)
         String vehicleTrimLevel,
-        BigDecimal transportQuote
+        BigDecimal transportQuote,
+        /** Optional. When present, pending files uploaded with this token are claimed and linked to the new purchase. */
+        UUID uploadToken
 ) {}

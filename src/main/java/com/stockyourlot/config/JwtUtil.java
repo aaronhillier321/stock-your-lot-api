@@ -8,6 +8,9 @@ import io.jsonwebtoken.security.SignatureException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
@@ -15,6 +18,8 @@ import java.util.List;
 
 @Component
 public class JwtUtil {
+
+    private static final Logger log = LoggerFactory.getLogger(JwtUtil.class);
 
     private final SecretKey key;
     private final long expirationMs;
@@ -54,7 +59,14 @@ public class JwtUtil {
         try {
             parseClaims(token);
             return true;
-        } catch (SignatureException | ExpiredJwtException | IllegalArgumentException e) {
+        } catch (ExpiredJwtException e) {
+            log.warn("JWT expired: {}", e.getMessage());
+            return false;
+        } catch (SignatureException e) {
+            log.warn("JWT signature invalid: {}", e.getMessage());
+            return false;
+        } catch (IllegalArgumentException e) {
+            log.warn("JWT invalid: {}", e.getMessage());
             return false;
         }
     }

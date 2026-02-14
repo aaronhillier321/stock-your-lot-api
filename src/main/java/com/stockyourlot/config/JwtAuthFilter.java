@@ -16,8 +16,13 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 @Component
 public class JwtAuthFilter extends OncePerRequestFilter {
+
+    private static final Logger log = LoggerFactory.getLogger(JwtAuthFilter.class);
 
     private final JwtUtil jwtUtil;
     private final UserRepository userRepository;
@@ -39,16 +44,22 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         }
         String token = authHeader.substring(7);
         if (!jwtUtil.validateToken(token)) {
+            log.info("JWT validation failed for {} {} (check logs above for expired/signature invalid) -> pre-authenticated entry point will reject", request.getMethod(), request.getRequestURI());
             filterChain.doFilter(request, response);
             return;
         }
         String username = jwtUtil.getUsernameFromToken(token);
-        userRepository.findByUsername(username).ifPresent(user -> {
-            UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
-                    user, null, user.getAuthorities());
-            auth.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-            SecurityContextHolder.getContext().setAuthentication(auth);
-        });
+        var userOpt = userRepository.findByUsername(username);
+        if (userOpt.isEmpty()) {
+            log.warn("JWT valid but user not found: username={} for {} {} -> pre-authenticated entry point will reject", username, request.getMethod(), request.getRequestURI());
+            filterChain.doFilter(request, response);
+            return;
+        }
+        User user = userOpt.get();
+        UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
+                user, null, user.getAuthorities());
+        auth.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+        SecurityContextHolder.getContext().setAuthentication(auth);
         filterChain.doFilter(request, response);
     }
 }
