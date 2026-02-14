@@ -3,6 +3,8 @@ package com.stockyourlot.service;
 import com.google.cloud.storage.BlobId;
 import com.google.cloud.storage.BlobInfo;
 import com.google.cloud.storage.Storage;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -16,6 +18,8 @@ import java.util.Optional;
  */
 @Service
 public class GcsFileStorageService {
+
+    private static final Logger log = LoggerFactory.getLogger(GcsFileStorageService.class);
 
     public static final String PENDING_PREFIX = "pending/";
     private static final String PDF_CONTENT_TYPE = "application/pdf";
@@ -68,10 +72,23 @@ public class GcsFileStorageService {
      * Get content of an object, or empty if it does not exist.
      */
     public Optional<byte[]> getContent(String objectPath) {
-        if (!isBucketConfigured()) return Optional.empty();
-        if (storage == null) return Optional.empty();
-        var blob = storage.get(BlobId.of(bucketName, objectPath));
-        if (blob == null) return Optional.empty();
+        log.debug("getContent: bucket={}, objectPath={}, isBucketConfigured={}, storageNull={}",
+                bucketName, objectPath, isBucketConfigured(), storage == null);
+        if (!isBucketConfigured()) {
+            log.warn("getContent: skipped - GCS not configured (bucket={})", bucketName);
+            return Optional.empty();
+        }
+        if (storage == null) {
+            log.warn("getContent: skipped - Storage bean is null");
+            return Optional.empty();
+        }
+        BlobId blobId = BlobId.of(bucketName, objectPath);
+        var blob = storage.get(blobId);
+        if (blob == null) {
+            log.warn("getContent: blob not found in GCS for bucket={}, objectPath={}", bucketName, objectPath);
+            return Optional.empty();
+        }
+        log.debug("getContent: found blob in GCS, size={} bytes", blob.getSize());
         return Optional.of(blob.getContent());
     }
 

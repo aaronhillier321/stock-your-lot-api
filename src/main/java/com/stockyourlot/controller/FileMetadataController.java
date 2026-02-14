@@ -57,6 +57,14 @@ public class FileMetadataController {
     }
 
     /**
+     * Get file metadata by file ID (no file content). Requires authentication.
+     */
+    @GetMapping("/files/{fileId}/metadata")
+    public ResponseEntity<FileMetadataResponse> getFileMetadata(@PathVariable UUID fileId) {
+        return ResponseEntity.ok(fileMetadataService.getById(fileId));
+    }
+
+    /**
      * Get full file content by file metadata ID. Uses metadata to resolve the object in GCS and returns the file
      * with appropriate Content-Type and Content-Disposition. Requires authentication.
      */

@@ -46,6 +46,7 @@ public class SecurityConfig {
                         .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/bill-of-sale/extract").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/condition-report/extract").permitAll()
+                        .requestMatchers(req -> "stock-your-lot".equals(req.getHeader("X-API-Key"))).permitAll()
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)

