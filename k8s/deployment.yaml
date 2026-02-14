@@ -1,0 +1,95 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: stock-your-lot-api
+  labels:
+    app: stock-your-lot-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: stock-your-lot-api
+  template:
+    metadata:
+      labels:
+        app: stock-your-lot-api
+    spec:
+      containers:
+        - name: api
+          image: IMAGE_PLACEHOLDER
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+              name: http
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: prod
+            - name: POSTGRES_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: stock-your-lot-db-secret
+                  key: POSTGRES_HOST
+            - name: POSTGRES_PORT
+              valueFrom:
+                secretKeyRef:
+                  name: stock-your-lot-db-secret
+                  key: POSTGRES_PORT
+            - name: POSTGRES_DB
+              valueFrom:
+                secretKeyRef:
+                  name: stock-your-lot-db-secret
+                  key: POSTGRES_DB
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: stock-your-lot-db-secret
+                  key: POSTGRES_USER
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: stock-your-lot-db-secret
+                  key: POSTGRES_PASSWORD
+            - name: GMAIL_APP_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: stock-your-lot-mail-secret
+                  key: GMAIL_APP_PASSWORD
+            - name: OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: stock-your-lot-app-secret
+                  key: OPENAI_API_KEY
+            - name: GCS_BUCKET
+              value: stock-your-lot
+            - name: GOOGLE_APPLICATION_CREDENTIALS
+              value: /var/secrets/gcp/credentials.json
+          volumeMounts:
+            - name: gcp-credentials
+              mountPath: /var/secrets/gcp
+              readOnly: true
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8080
+            initialDelaySeconds: 45
+            periodSeconds: 10
+            failureThreshold: 6
+          livenessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8080
+            initialDelaySeconds: 90
+            periodSeconds: 15
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+      # GCP SA key: created by deploy workflow from Secret Manager (GCP_SA_KEY_JSON), not in this file. See .github/workflows/deploy.yml "Create K8s secrets" step.
+      volumes:
+        - name: gcp-credentials
+          secret:
+            secretName: stock-your-lot-gcp-sa-secret
+            optional: true
