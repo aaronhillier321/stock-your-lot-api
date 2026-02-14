@@ -4,6 +4,36 @@
 - **Service** – `LoadBalancer` so the API is reachable from outside the cluster.
 - **Secret** – create from your secrets (e.g. in CI); see `secret.example.yaml`.
 
+## Using a GCP service account key file (secret mount)
+
+Store the service account JSON key in a Kubernetes secret and mount it so the app uses it via `GOOGLE_APPLICATION_CREDENTIALS`.
+
+1. **Create the Kubernetes secret** (one of these):
+
+   **From a local key file** (e.g. after downloading from GCP Console → IAM → Service Accounts → Keys):
+   ```bash
+   kubectl create secret generic stock-your-lot-gcp-sa-secret \
+     --from-file=credentials.json=/path/to/your-service-account-key.json
+   ```
+
+   **From GCP Secret Manager** (store the key JSON in a secret named `GCP_SA_KEY_JSON`, then in CI or manually):
+   ```bash
+   gcloud secrets versions access latest --secret=GCP_SA_KEY_JSON --project=PROJECT_ID > /tmp/gcp-sa.json
+   kubectl create secret generic stock-your-lot-gcp-sa-secret \
+     --from-file=credentials.json=/tmp/gcp-sa.json
+   rm /tmp/gcp-sa.json
+   ```
+   The deploy workflow will create/update `stock-your-lot-gcp-sa-secret` from Secret Manager if `GCP_SA_KEY_JSON` exists.
+
+2. The deployment mounts this secret at `/var/secrets/gcp/credentials.json` and sets `GOOGLE_APPLICATION_CREDENTIALS` to that path. The GCP client library (Storage, etc.) uses it automatically—no application.properties or code changes.
+
+3. If the secret is not created, the volume is optional so the pod still starts; GCS calls will use the node's default identity (or fail if that identity has no access). Create the secret and restart the deployment when you need GCS with your SA:
+   ```bash
+   kubectl rollout restart deployment/stock-your-lot-api
+   ```
+
+4. **Security**: Store the key in Secret Manager and rotate it periodically; avoid committing it to git.
+
 ## Deploy on merge (CI)
 
 1. Build and push image (e.g. to GCR or Artifact Registry):

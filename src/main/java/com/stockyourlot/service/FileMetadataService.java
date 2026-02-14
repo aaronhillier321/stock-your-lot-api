@@ -15,13 +15,22 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.io.IOException;
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 @Service
 public class FileMetadataService {
+
+    /** Holder for bill-of-sale and condition-report file IDs per purchase. */
+    public record BillAndConditionReportFileIds(UUID billOfSaleFileId, UUID conditionReportFileId) {}
+
+    /** File content for download: bytes, content type, and suggested filename. */
+    public record FileDownload(byte[] content, String contentType, String fileName) {}
 
     private static final String PDF_CONTENT_TYPE = "application/pdf";
     private static final long MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024; // 20 MB
@@ -104,6 +113,52 @@ public class FileMetadataService {
         return fileMetadataRepository.findByDealership_IdOrderByCreatedAtDesc(dealershipId).stream()
                 .map(this::toResponse)
                 .toList();
+    }
+
+    /**
+     * Returns the file content for download by file metadata ID. Uses metadata to resolve GCS object path.
+     * @throws ResponseStatusException 404 if metadata not found or object not found in GCS
+     */
+    @Transactional(readOnly = true)
+    public FileDownload getFileContent(UUID fileId) {
+        FileMetadata meta = fileMetadataRepository.findById(fileId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "File not found: " + fileId));
+        Optional<byte[]> content = gcsFileStorageService.getContent(meta.getObjectPath());
+        if (content.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "File content not found in storage: " + fileId);
+        }
+        String contentType = meta.getContentType() != null && !meta.getContentType().isBlank()
+                ? meta.getContentType()
+                : PDF_CONTENT_TYPE;
+        String fileName = meta.getFileName() != null && !meta.getFileName().isBlank()
+                ? meta.getFileName()
+                : (meta.getFileType() != null ? meta.getFileType().name().toLowerCase().replace('_', '-') + ".pdf" : "file.pdf");
+        return new FileDownload(content.get(), contentType, fileName);
+    }
+
+    /**
+     * Returns bill-of-sale and condition-report file IDs for the given purchase IDs (one per type per purchase, by earliest created).
+     */
+    @Transactional(readOnly = true)
+    public Map<UUID, BillAndConditionReportFileIds> getBillAndConditionReportFileIdsByPurchaseIds(Collection<UUID> purchaseIds) {
+        if (purchaseIds == null || purchaseIds.isEmpty()) {
+            return Map.of();
+        }
+        List<FileMetadata> files = fileMetadataRepository.findByPurchase_IdIn(purchaseIds);
+        return files.stream()
+                .filter(f -> f.getFileType() == FileType.BILL_OF_SALE || f.getFileType() == FileType.CONDITION_REPORT)
+                .collect(Collectors.groupingBy(f -> f.getPurchase().getId()))
+                .entrySet().stream()
+                .collect(Collectors.toMap(
+                        Map.Entry::getKey,
+                        e -> {
+                            List<FileMetadata> list = e.getValue().stream()
+                                    .sorted((a, b) -> a.getCreatedAt().compareTo(b.getCreatedAt()))
+                                    .toList();
+                            UUID billId = list.stream().filter(f -> f.getFileType() == FileType.BILL_OF_SALE).findFirst().map(FileMetadata::getId).orElse(null);
+                            UUID conditionId = list.stream().filter(f -> f.getFileType() == FileType.CONDITION_REPORT).findFirst().map(FileMetadata::getId).orElse(null);
+                            return new BillAndConditionReportFileIds(billId, conditionId);
+                        }));
     }
 
     /**

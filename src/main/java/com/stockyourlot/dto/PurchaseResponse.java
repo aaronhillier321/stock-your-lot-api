@@ -22,5 +22,7 @@ public record PurchaseResponse(
         String vehicleModel,
         String vehicleTrimLevel,
         BigDecimal transportQuote,
-        Instant createdAt
+        Instant createdAt,
+        UUID billOfSaleFileId,
+        UUID conditionReportFileId
 ) {}

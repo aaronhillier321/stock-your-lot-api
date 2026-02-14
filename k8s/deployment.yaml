@@ -59,6 +59,14 @@ spec:
                 secretKeyRef:
                   name: stock-your-lot-app-secret
                   key: OPENAI_API_KEY
+            - name: GCS_BUCKET
+              value: stock-your-lot
+            - name: GOOGLE_APPLICATION_CREDENTIALS
+              value: /var/secrets/gcp/credentials.json
+          volumeMounts:
+            - name: gcp-credentials
+              mountPath: /var/secrets/gcp
+              readOnly: true
           readinessProbe:
             httpGet:
               path: /actuator/health
@@ -78,3 +86,8 @@ spec:
             limits:
               memory: "512Mi"
               cpu: "500m"
+      volumes:
+        - name: gcp-credentials
+          secret:
+            secretName: stock-your-lot-gcp-sa-secret
+            optional: true

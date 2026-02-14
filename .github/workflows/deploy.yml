@@ -69,6 +69,14 @@ jobs:
           kubectl create secret generic stock-your-lot-app-secret \
             --from-literal=OPENAI_API_KEY="$(gcloud secrets versions access latest --secret=OPEN_AI_API_KEY --project=${{ secrets.GCP_PROJECT_ID }})" \
             --dry-run=client -o yaml | kubectl apply -f -
+          # GCP SA key for Cloud Storage (optional). Create Secret Manager secret GCP_SA_KEY_JSON with the JSON key file contents.
+          if gcloud secrets describe GCP_SA_KEY_JSON --project=${{ secrets.GCP_PROJECT_ID }} 2>/dev/null; then
+            gcloud secrets versions access latest --secret=GCP_SA_KEY_JSON --project=${{ secrets.GCP_PROJECT_ID }} > /tmp/gcp-sa-credentials.json
+            kubectl create secret generic stock-your-lot-gcp-sa-secret \
+              --from-file=credentials.json=/tmp/gcp-sa-credentials.json \
+              --dry-run=client -o yaml | kubectl apply -f -
+            rm -f /tmp/gcp-sa-credentials.json
+          fi
 
       - name: Deploy to GKE
         run: |

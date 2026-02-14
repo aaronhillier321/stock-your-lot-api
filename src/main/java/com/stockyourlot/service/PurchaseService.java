@@ -6,6 +6,7 @@ import com.stockyourlot.dto.UpdatePurchaseRequest;
 import com.stockyourlot.entity.Dealership;
 import com.stockyourlot.entity.Purchase;
 import com.stockyourlot.entity.User;
+import com.stockyourlot.service.FileMetadataService.BillAndConditionReportFileIds;
 import com.stockyourlot.repository.DealershipRepository;
 import com.stockyourlot.repository.PurchaseRepository;
 import org.springframework.data.domain.Sort;
@@ -16,6 +17,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -36,28 +38,26 @@ public class PurchaseService {
     public PurchaseResponse getById(UUID id) {
         Purchase p = purchaseRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Purchase not found: " + id));
-        return toResponse(p);
+        Map<UUID, BillAndConditionReportFileIds> fileIdsMap = fileMetadataService.getBillAndConditionReportFileIdsByPurchaseIds(List.of(p.getId()));
+        return toResponse(p, fileIdsMap.getOrDefault(p.getId(), new BillAndConditionReportFileIds(null, null)));
     }
 
     @Transactional(readOnly = true)
     public List<PurchaseResponse> getAll() {
-        return purchaseRepository.findAll(Sort.by(Sort.Direction.DESC, "createdAt")).stream()
-                .map(this::toResponse)
-                .toList();
+        List<Purchase> purchases = purchaseRepository.findAll(Sort.by(Sort.Direction.DESC, "createdAt"));
+        return toResponseListWithFileIds(purchases);
     }
 
     @Transactional(readOnly = true)
     public List<PurchaseResponse> getByBuyerId(UUID buyerId) {
-        return purchaseRepository.findByBuyerIdOrderByCreatedAtDesc(buyerId).stream()
-                .map(this::toResponse)
-                .toList();
+        List<Purchase> purchases = purchaseRepository.findByBuyerIdOrderByCreatedAtDesc(buyerId);
+        return toResponseListWithFileIds(purchases);
     }
 
     @Transactional(readOnly = true)
     public List<PurchaseResponse> getByDealershipId(UUID dealershipId) {
-        return purchaseRepository.findByDealership_IdOrderByCreatedAtDesc(dealershipId).stream()
-                .map(this::toResponse)
-                .toList();
+        List<Purchase> purchases = purchaseRepository.findByDealership_IdOrderByCreatedAtDesc(dealershipId);
+        return toResponseListWithFileIds(purchases);
     }
 
     @Transactional
@@ -85,7 +85,8 @@ public class PurchaseService {
                 throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to claim pending files: " + e.getMessage());
             }
         }
-        return toResponse(p);
+        Map<UUID, BillAndConditionReportFileIds> fileIdsMap = fileMetadataService.getBillAndConditionReportFileIdsByPurchaseIds(List.of(p.getId()));
+        return toResponse(p, fileIdsMap.getOrDefault(p.getId(), new BillAndConditionReportFileIds(null, null)));
     }
 
     @Transactional
@@ -108,10 +109,20 @@ public class PurchaseService {
         if (request.vehicleTrimLevel() != null) p.setVehicleTrimLevel(request.vehicleTrimLevel());
         if (request.transportQuote() != null) p.setTransportQuote(request.transportQuote());
         p = purchaseRepository.save(p);
-        return toResponse(p);
+        Map<UUID, BillAndConditionReportFileIds> fileIdsMap = fileMetadataService.getBillAndConditionReportFileIdsByPurchaseIds(List.of(p.getId()));
+        return toResponse(p, fileIdsMap.getOrDefault(p.getId(), new BillAndConditionReportFileIds(null, null)));
     }
 
-    private PurchaseResponse toResponse(Purchase p) {
+    private List<PurchaseResponse> toResponseListWithFileIds(List<Purchase> purchases) {
+        if (purchases.isEmpty()) return List.of();
+        List<UUID> ids = purchases.stream().map(Purchase::getId).toList();
+        Map<UUID, BillAndConditionReportFileIds> fileIdsMap = fileMetadataService.getBillAndConditionReportFileIdsByPurchaseIds(ids);
+        return purchases.stream()
+                .map(p -> toResponse(p, fileIdsMap.getOrDefault(p.getId(), new BillAndConditionReportFileIds(null, null))))
+                .toList();
+    }
+
+    private PurchaseResponse toResponse(Purchase p, BillAndConditionReportFileIds fileIds) {
         Dealership d = p.getDealership();
         User buyer = p.getBuyer();
         return new PurchaseResponse(
@@ -131,7 +142,9 @@ public class PurchaseService {
                 p.getVehicleModel(),
                 p.getVehicleTrimLevel(),
                 p.getTransportQuote(),
-                p.getCreatedAt()
+                p.getCreatedAt(),
+                fileIds != null ? fileIds.billOfSaleFileId() : null,
+                fileIds != null ? fileIds.conditionReportFileId() : null
         );
     }
 }
