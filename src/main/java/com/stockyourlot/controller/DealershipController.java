@@ -2,6 +2,7 @@ package com.stockyourlot.controller;
 
 import com.stockyourlot.dto.CreateDealershipRequest;
 import com.stockyourlot.dto.DealershipResponse;
+import com.stockyourlot.dto.UpdateDealershipRequest;
 import com.stockyourlot.dto.PurchaseResponse;
 import com.stockyourlot.service.DealershipService;
 import com.stockyourlot.service.PurchaseService;
@@ -35,6 +36,16 @@ public class DealershipController {
     @GetMapping("/{id}")
     public ResponseEntity<DealershipResponse> getDealershipById(@PathVariable UUID id) {
         return ResponseEntity.ok(dealershipService.getById(id));
+    }
+
+    /**
+     * Update a dealership by ID. Only provided fields in the body are updated.
+     */
+    @PutMapping("/{id}")
+    public ResponseEntity<DealershipResponse> updateDealership(
+            @PathVariable UUID id,
+            @Valid @RequestBody UpdateDealershipRequest request) {
+        return ResponseEntity.ok(dealershipService.update(id, request));
     }
 
     @GetMapping("/{id}/purchases")

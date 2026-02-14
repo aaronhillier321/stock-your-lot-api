@@ -2,6 +2,7 @@ package com.stockyourlot.controller;
 
 import com.stockyourlot.dto.CreatePurchaseRequest;
 import com.stockyourlot.dto.PurchaseResponse;
+import com.stockyourlot.dto.UpdatePurchaseRequest;
 import com.stockyourlot.entity.User;
 import com.stockyourlot.service.PurchaseService;
 import jakarta.validation.Valid;
@@ -29,6 +30,14 @@ public class PurchaseController {
     @GetMapping
     public ResponseEntity<List<PurchaseResponse>> getAll() {
         return ResponseEntity.ok(purchaseService.getAll());
+    }
+
+    /**
+     * Get a single purchase by ID.
+     */
+    @GetMapping("/{id}")
+    public ResponseEntity<PurchaseResponse> getById(@PathVariable UUID id) {
+        return ResponseEntity.ok(purchaseService.getById(id));
     }
 
     /**
@@ -62,5 +71,15 @@ public class PurchaseController {
         }
         PurchaseResponse response = purchaseService.create(request, user);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    /**
+     * Update a purchase by ID. Only provided fields in the body are updated.
+     */
+    @PutMapping("/{id}")
+    public ResponseEntity<PurchaseResponse> updatePurchase(
+            @PathVariable UUID id,
+            @Valid @RequestBody UpdatePurchaseRequest request) {
+        return ResponseEntity.ok(purchaseService.update(id, request));
     }
 }

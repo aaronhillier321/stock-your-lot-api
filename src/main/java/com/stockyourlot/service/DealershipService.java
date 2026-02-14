@@ -2,6 +2,7 @@ package com.stockyourlot.service;
 
 import com.stockyourlot.dto.CreateDealershipRequest;
 import com.stockyourlot.dto.DealershipResponse;
+import com.stockyourlot.dto.UpdateDealershipRequest;
 import com.stockyourlot.entity.Dealership;
 import com.stockyourlot.repository.DealershipRepository;
 import com.stockyourlot.repository.PurchaseRepository;
@@ -43,6 +44,22 @@ public class DealershipService {
     public DealershipResponse getById(UUID id) {
         Dealership dealership = dealershipRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Dealership not found: " + id));
+        long purchaseCount = purchaseRepository.countByDealership_Id(id);
+        return toResponse(dealership, purchaseCount);
+    }
+
+    @Transactional
+    public DealershipResponse update(UUID id, UpdateDealershipRequest request) {
+        Dealership dealership = dealershipRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Dealership not found: " + id));
+        if (request.name() != null) dealership.setName(request.name());
+        if (request.addressLine1() != null) dealership.setAddressLine1(request.addressLine1());
+        if (request.addressLine2() != null) dealership.setAddressLine2(request.addressLine2());
+        if (request.city() != null) dealership.setCity(request.city());
+        if (request.state() != null) dealership.setState(request.state());
+        if (request.postalCode() != null) dealership.setPostalCode(request.postalCode());
+        if (request.phone() != null) dealership.setPhone(request.phone());
+        dealership = dealershipRepository.save(dealership);
         long purchaseCount = purchaseRepository.countByDealership_Id(id);
         return toResponse(dealership, purchaseCount);
     }

@@ -2,6 +2,7 @@ package com.stockyourlot.service;
 
 import com.stockyourlot.dto.CreatePurchaseRequest;
 import com.stockyourlot.dto.PurchaseResponse;
+import com.stockyourlot.dto.UpdatePurchaseRequest;
 import com.stockyourlot.entity.Dealership;
 import com.stockyourlot.entity.Purchase;
 import com.stockyourlot.entity.User;
@@ -25,6 +26,13 @@ public class PurchaseService {
     public PurchaseService(PurchaseRepository purchaseRepository, DealershipRepository dealershipRepository) {
         this.purchaseRepository = purchaseRepository;
         this.dealershipRepository = dealershipRepository;
+    }
+
+    @Transactional(readOnly = true)
+    public PurchaseResponse getById(UUID id) {
+        Purchase p = purchaseRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Purchase not found: " + id));
+        return toResponse(p);
     }
 
     @Transactional(readOnly = true)
@@ -65,6 +73,29 @@ public class PurchaseService {
         p.setVehicleModel(request.vehicleModel());
         p.setVehicleTrimLevel(request.vehicleTrimLevel());
         p.setTransportQuote(request.transportQuote());
+        p = purchaseRepository.save(p);
+        return toResponse(p);
+    }
+
+    @Transactional
+    public PurchaseResponse update(UUID purchaseId, UpdatePurchaseRequest request) {
+        Purchase p = purchaseRepository.findById(purchaseId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Purchase not found: " + purchaseId));
+        if (request.dealershipId() != null) {
+            Dealership dealership = dealershipRepository.findById(request.dealershipId())
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Dealership not found: " + request.dealershipId()));
+            p.setDealership(dealership);
+        }
+        if (request.date() != null) p.setPurchaseDate(request.date());
+        if (request.auctionPlatform() != null) p.setAuctionPlatform(request.auctionPlatform());
+        if (request.vin() != null) p.setVin(request.vin());
+        if (request.miles() != null) p.setMiles(request.miles());
+        if (request.purchasePrice() != null) p.setPurchasePrice(request.purchasePrice());
+        if (request.vehicleYear() != null) p.setVehicleYear(request.vehicleYear());
+        if (request.vehicleMake() != null) p.setVehicleMake(request.vehicleMake());
+        if (request.vehicleModel() != null) p.setVehicleModel(request.vehicleModel());
+        if (request.vehicleTrimLevel() != null) p.setVehicleTrimLevel(request.vehicleTrimLevel());
+        if (request.transportQuote() != null) p.setTransportQuote(request.transportQuote());
         p = purchaseRepository.save(p);
         return toResponse(p);
     }
