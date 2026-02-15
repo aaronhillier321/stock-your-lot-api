@@ -31,9 +31,9 @@ public class JwtUtil {
         this.expirationMs = expirationMs;
     }
 
-    public String generateToken(String username, String email, List<String> roles) {
+    public String generateToken(String email, List<String> roles) {
         return Jwts.builder()
-                .subject(username)
+                .subject(email)
                 .claim("email", email)
                 .claim("roles", roles != null ? roles : List.of())
                 .issuedAt(new Date())
@@ -42,7 +42,7 @@ public class JwtUtil {
                 .compact();
     }
 
-    public String getUsernameFromToken(String token) {
+    public String getEmailFromToken(String token) {
         return parseClaims(token).getSubject();
     }
 

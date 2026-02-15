@@ -1,6 +1,7 @@
 package com.stockyourlot.service;
 
 import com.stockyourlot.dto.CreatePurchaseRequest;
+import com.stockyourlot.dto.PurchaseCommissionItemDto;
 import com.stockyourlot.dto.PurchaseResponse;
 import com.stockyourlot.dto.UpdatePurchaseRequest;
 import com.stockyourlot.entity.Dealership;
@@ -8,6 +9,7 @@ import com.stockyourlot.entity.Purchase;
 import com.stockyourlot.entity.User;
 import com.stockyourlot.service.FileMetadataService.BillAndConditionReportFileIds;
 import com.stockyourlot.repository.DealershipRepository;
+import com.stockyourlot.repository.PurchaseCommissionRepository;
 import com.stockyourlot.repository.PurchaseRepository;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
@@ -26,13 +28,18 @@ public class PurchaseService {
 
     private final PurchaseRepository purchaseRepository;
     private final DealershipRepository dealershipRepository;
+    private final PurchaseCommissionRepository purchaseCommissionRepository;
     private final FileMetadataService fileMetadataService;
+    private final CommissionService commissionService;
 
     public PurchaseService(PurchaseRepository purchaseRepository, DealershipRepository dealershipRepository,
-                           FileMetadataService fileMetadataService) {
+                           PurchaseCommissionRepository purchaseCommissionRepository,
+                           FileMetadataService fileMetadataService, CommissionService commissionService) {
         this.purchaseRepository = purchaseRepository;
         this.dealershipRepository = dealershipRepository;
+        this.purchaseCommissionRepository = purchaseCommissionRepository;
         this.fileMetadataService = fileMetadataService;
+        this.commissionService = commissionService;
     }
 
     @Transactional(readOnly = true)
@@ -40,7 +47,15 @@ public class PurchaseService {
         Purchase p = purchaseRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Purchase not found: " + id));
         Map<UUID, BillAndConditionReportFileIds> fileIdsMap = fileMetadataService.getBillAndConditionReportFileIdsByPurchaseIds(List.of(p.getId()));
-        return toResponse(p, fileIdsMap.getOrDefault(p.getId(), new BillAndConditionReportFileIds(null, null)));
+        List<PurchaseCommissionItemDto> commissions = purchaseCommissionRepository.findByPurchase_IdOrderByCreatedAtAsc(p.getId())
+                .stream()
+                .map(pc -> new PurchaseCommissionItemDto(
+                        pc.getUser().getId(),
+                        pc.getUser().getUsername(),
+                        pc.getRule() != null ? pc.getRule().getId() : null,
+                        pc.getAmount()))
+                .toList();
+        return toResponse(p, fileIdsMap.getOrDefault(p.getId(), new BillAndConditionReportFileIds(null, null)), commissions);
     }
 
     private static final Sort DEFAULT_PURCHASE_SORT = Sort.by(Sort.Direction.DESC, "createdAt");
@@ -97,8 +112,10 @@ public class PurchaseService {
                 throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to claim pending files: " + e.getMessage());
             }
         }
+        commissionService.recordCommissionsForPurchase(p);
+        commissionService.expireUserCommissionRulesIfApplicable(buyer.getId(), p.getPurchaseDate());
         Map<UUID, BillAndConditionReportFileIds> fileIdsMap = fileMetadataService.getBillAndConditionReportFileIdsByPurchaseIds(List.of(p.getId()));
-        return toResponse(p, fileIdsMap.getOrDefault(p.getId(), new BillAndConditionReportFileIds(null, null)));
+        return toResponse(p, fileIdsMap.getOrDefault(p.getId(), new BillAndConditionReportFileIds(null, null)), List.of());
     }
 
     @Transactional
@@ -122,7 +139,7 @@ public class PurchaseService {
         if (request.transportQuote() != null) p.setTransportQuote(request.transportQuote());
         p = purchaseRepository.save(p);
         Map<UUID, BillAndConditionReportFileIds> fileIdsMap = fileMetadataService.getBillAndConditionReportFileIdsByPurchaseIds(List.of(p.getId()));
-        return toResponse(p, fileIdsMap.getOrDefault(p.getId(), new BillAndConditionReportFileIds(null, null)));
+        return toResponse(p, fileIdsMap.getOrDefault(p.getId(), new BillAndConditionReportFileIds(null, null)), List.of());
     }
 
     private List<PurchaseResponse> toResponseListWithFileIds(List<Purchase> purchases) {
@@ -130,11 +147,11 @@ public class PurchaseService {
         List<UUID> ids = purchases.stream().map(Purchase::getId).toList();
         Map<UUID, BillAndConditionReportFileIds> fileIdsMap = fileMetadataService.getBillAndConditionReportFileIdsByPurchaseIds(ids);
         return purchases.stream()
-                .map(p -> toResponse(p, fileIdsMap.getOrDefault(p.getId(), new BillAndConditionReportFileIds(null, null))))
+                .map(p -> toResponse(p, fileIdsMap.getOrDefault(p.getId(), new BillAndConditionReportFileIds(null, null)), List.of()))
                 .toList();
     }
 
-    private PurchaseResponse toResponse(Purchase p, BillAndConditionReportFileIds fileIds) {
+    private PurchaseResponse toResponse(Purchase p, BillAndConditionReportFileIds fileIds, List<PurchaseCommissionItemDto> commissions) {
         Dealership d = p.getDealership();
         User buyer = p.getBuyer();
         return new PurchaseResponse(
@@ -156,7 +173,8 @@ public class PurchaseService {
                 p.getTransportQuote(),
                 p.getCreatedAt(),
                 fileIds != null ? fileIds.billOfSaleFileId() : null,
-                fileIds != null ? fileIds.conditionReportFileId() : null
+                fileIds != null ? fileIds.conditionReportFileId() : null,
+                commissions != null ? commissions : List.of()
         );
     }
 }

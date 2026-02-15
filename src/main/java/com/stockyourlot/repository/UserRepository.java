@@ -11,8 +11,6 @@ import java.util.UUID;
 
 public interface UserRepository extends JpaRepository<User, UUID> {
 
-    Optional<User> findByUsername(String username);
-
     Optional<User> findByEmail(String email);
 
     @Query("SELECT u FROM User u LEFT JOIN FETCH u.dealershipUsers du LEFT JOIN FETCH du.dealership WHERE u.id = :id")
@@ -20,8 +18,6 @@ public interface UserRepository extends JpaRepository<User, UUID> {
 
     @Query("SELECT DISTINCT u FROM User u LEFT JOIN FETCH u.roles LEFT JOIN FETCH u.dealershipUsers du LEFT JOIN FETCH du.dealership")
     List<User> findAllWithRolesAndDealershipUsers();
-
-    boolean existsByUsername(String username);
 
     boolean existsByEmail(String email);
 }

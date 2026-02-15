@@ -48,10 +48,10 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             filterChain.doFilter(request, response);
             return;
         }
-        String username = jwtUtil.getUsernameFromToken(token);
-        var userOpt = userRepository.findByUsername(username);
+        String email = jwtUtil.getEmailFromToken(token);
+        var userOpt = userRepository.findByEmail(email);
         if (userOpt.isEmpty()) {
-            log.warn("JWT valid but user not found: username={} for {} {} -> pre-authenticated entry point will reject", username, request.getMethod(), request.getRequestURI());
+            log.warn("JWT valid but user not found: email={} for {} {} -> pre-authenticated entry point will reject", email, request.getMethod(), request.getRequestURI());
             filterChain.doFilter(request, response);
             return;
         }

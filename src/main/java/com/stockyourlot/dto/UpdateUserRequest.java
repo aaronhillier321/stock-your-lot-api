@@ -1,6 +1,7 @@
 package com.stockyourlot.dto;
 
 import com.fasterxml.jackson.annotation.JsonAlias;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.Size;
 
@@ -12,9 +13,6 @@ import java.util.List;
  * (roles not in the list are removed). Accepts camelCase or snake_case in JSON.
  */
 public record UpdateUserRequest(
-        @Size(min = 2, max = 100)
-        String username,
-
         @Email(message = "Email must be valid")
         @Size(max = 255)
         String email,
@@ -32,5 +30,9 @@ public record UpdateUserRequest(
         String phoneNumber,
 
         /** Global role names (BUYER, DEALER, ADMIN). When provided, replaces user's roles with this set. */
-        List<String> roles
+        List<String> roles,
+
+        /** When provided, replaces user's commission rule assignments with this set. */
+        @Valid
+        List<UserCommissionRuleInput> userCommissionRules
 ) {}

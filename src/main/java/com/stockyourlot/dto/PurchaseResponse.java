@@ -3,6 +3,7 @@ package com.stockyourlot.dto;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
 
 public record PurchaseResponse(
@@ -24,5 +25,6 @@ public record PurchaseResponse(
         BigDecimal transportQuote,
         Instant createdAt,
         UUID billOfSaleFileId,
-        UUID conditionReportFileId
+        UUID conditionReportFileId,
+        List<PurchaseCommissionItemDto> commissions
 ) {}

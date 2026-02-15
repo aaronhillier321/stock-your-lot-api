@@ -11,7 +11,6 @@ import java.util.stream.Collectors;
 
 @Entity
 @Table(name = "users", indexes = {
-        @Index(name = "idx_users_username", columnList = "username", unique = true),
         @Index(name = "idx_users_email", columnList = "email", unique = true)
 })
 public class User implements UserDetails {
@@ -19,9 +18,6 @@ public class User implements UserDetails {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
-
-    @Column(nullable = false, unique = true, length = 100)
-    private String username;
 
     @Column(nullable = false, unique = true, length = 255)
     private String email;
@@ -81,9 +77,10 @@ public class User implements UserDetails {
         return passwordHash != null ? passwordHash : "";
     }
 
+    /** Username is derived: first name + " " + last name (not stored). */
     @Override
     public String getUsername() {
-        return username;
+        return getFullName();
     }
 
     @Override
@@ -108,15 +105,13 @@ public class User implements UserDetails {
 
     protected User() {}
 
-    public User(String username, String email, String passwordHash) {
-        this.username = username;
+    public User(String email, String passwordHash) {
         this.email = email;
         this.passwordHash = passwordHash;
         this.status = "ACTIVE";
     }
 
-    public User(String username, String email, String passwordHash, String status) {
-        this.username = username;
+    public User(String email, String passwordHash, String status) {
         this.email = email;
         this.passwordHash = passwordHash;
         this.status = status != null ? status : "ACTIVE";
@@ -128,10 +123,6 @@ public class User implements UserDetails {
 
     public void setId(UUID id) {
         this.id = id;
-    }
-
-    public void setUsername(String username) {
-        this.username = username;
     }
 
     public String getEmail() {
@@ -160,6 +151,13 @@ public class User implements UserDetails {
 
     public void setLastName(String lastName) {
         this.lastName = lastName;
+    }
+
+    /** Derived: first name + " " + last name (trimmed, null-safe). */
+    public String getFullName() {
+        String first = firstName != null ? firstName.trim() : "";
+        String last = lastName != null ? lastName.trim() : "";
+        return (first + " " + last).trim();
     }
 
     public String getPhoneNumber() {

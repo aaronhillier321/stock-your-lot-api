@@ -2,14 +2,19 @@ package com.stockyourlot.service;
 
 import com.stockyourlot.dto.DealershipRoleDto;
 import com.stockyourlot.dto.UpdateUserRequest;
+import com.stockyourlot.dto.UserCommissionAssignmentDto;
+import com.stockyourlot.dto.UserCommissionRuleInput;
 import com.stockyourlot.dto.UserWithRolesDto;
 import com.stockyourlot.entity.Dealership;
 import com.stockyourlot.entity.DealershipUser;
 import com.stockyourlot.entity.Role;
 import com.stockyourlot.entity.User;
+import com.stockyourlot.entity.UserCommission;
+import com.stockyourlot.entity.UserCommissionStatus;
 import com.stockyourlot.repository.DealershipRepository;
 import com.stockyourlot.repository.DealershipUserRepository;
 import com.stockyourlot.repository.RoleRepository;
+import com.stockyourlot.repository.UserCommissionRepository;
 import com.stockyourlot.repository.UserRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -18,8 +23,11 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 public class UserService {
@@ -29,15 +37,21 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
+    private final CommissionService commissionService;
+    private final UserCommissionRepository userCommissionRepository;
     private final DealershipRepository dealershipRepository;
     private final DealershipUserRepository dealershipUserRepository;
 
     public UserService(UserRepository userRepository,
                        RoleRepository roleRepository,
+                       CommissionService commissionService,
+                       UserCommissionRepository userCommissionRepository,
                        DealershipRepository dealershipRepository,
                        DealershipUserRepository dealershipUserRepository) {
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
+        this.commissionService = commissionService;
+        this.userCommissionRepository = userCommissionRepository;
         this.dealershipRepository = dealershipRepository;
         this.dealershipUserRepository = dealershipUserRepository;
     }
@@ -105,22 +119,13 @@ public class UserService {
      * Update a user by ID. Only non-null fields in the request are applied.
      * Username and email must remain unique; 409 if already taken by another user.
      *
-     * @throws ResponseStatusException 404 if user not found, 409 if username/email taken
+     * @throws ResponseStatusException 404 if user not found, 409 if email taken
      */
     @Transactional
     public UserWithRolesDto update(UUID id, UpdateUserRequest request) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found: " + id));
 
-        if (request.username() != null && !request.username().trim().isEmpty()) {
-            String username = request.username().trim();
-            userRepository.findByUsername(username).ifPresent(other -> {
-                if (!other.getId().equals(id)) {
-                    throw new ResponseStatusException(HttpStatus.CONFLICT, "Username already in use: " + username);
-                }
-            });
-            user.setUsername(username);
-        }
         if (request.email() != null && !request.email().trim().isEmpty()) {
             String email = request.email().trim().toLowerCase();
             userRepository.findByEmail(email).ifPresent(other -> {
@@ -156,18 +161,30 @@ public class UserService {
             user.setRoles(newRoles);
         }
 
+        if (request.userCommissionRules() != null) {
+            userCommissionRepository.deleteByUser_Id(id);
+            Optional<String> commissionError = commissionService.assignUserCommissionRules(user, request.userCommissionRules());
+            if (commissionError.isPresent()) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, commissionError.get());
+            }
+        }
+
         userRepository.save(user);
         return getById(id);
     }
 
     /**
-     * Returns a user by ID with global roles and dealership memberships.
+     * Returns a user by ID with global roles, dealership memberships, and all commission rule assignments.
      * @throws ResponseStatusException 404 if not found
      */
     @Transactional(readOnly = true)
     public UserWithRolesDto getById(UUID id) {
         User user = userRepository.findByIdWithDealershipUsers(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found: " + id));
+        List<UserCommissionAssignmentDto> commissionDtos = userCommissionRepository.findByUser_IdWithRuleOrderByLevelDesc(id)
+                .stream()
+                .map(this::toUserCommissionAssignmentDto)
+                .toList();
         return new UserWithRolesDto(
                 user.getId(),
                 user.getUsername(),
@@ -181,15 +198,38 @@ public class UserService {
                                 du.getDealership().getId(),
                                 du.getDealership().getName(),
                                 du.getDealershipRole()))
-                        .toList());
+                        .toList(),
+                commissionDtos);
+    }
+
+    private UserCommissionAssignmentDto toUserCommissionAssignmentDto(UserCommission uc) {
+        var rule = uc.getRule();
+        return new UserCommissionAssignmentDto(
+                rule != null ? rule.getId() : null,
+                rule != null ? rule.getAmount() : null,
+                rule != null ? rule.getCommissionType() : null,
+                uc.getStartDate(),
+                uc.getEndDate(),
+                uc.getLevel(),
+                uc.getNumberOfSales(),
+                uc.getStatus());
     }
 
     /**
-     * Returns all users with their global roles and dealership memberships.
+     * Returns all users with their global roles, dealership memberships, and active commission rule assignments.
      */
     @Transactional(readOnly = true)
     public List<UserWithRolesDto> getAllUsers() {
-        return userRepository.findAllWithRolesAndDealershipUsers().stream()
+        List<User> users = userRepository.findAllWithRolesAndDealershipUsers();
+        if (users.isEmpty()) return List.of();
+        Set<UUID> userIds = users.stream().map(User::getId).collect(Collectors.toSet());
+        List<UserCommission> activeCommissions = userCommissionRepository
+                .findByUser_IdInAndStatusWithRuleOrderByLevelDesc(userIds, UserCommissionStatus.ACTIVE);
+        Map<UUID, List<UserCommissionAssignmentDto>> commissionsByUser = activeCommissions.stream()
+                .collect(Collectors.groupingBy(uc -> uc.getUser().getId(),
+                        Collectors.mapping(this::toUserCommissionAssignmentDto, Collectors.toList())));
+
+        return users.stream()
                 .map(user -> new UserWithRolesDto(
                         user.getId(),
                         user.getUsername(),
@@ -203,7 +243,8 @@ public class UserService {
                                         du.getDealership().getId(),
                                         du.getDealership().getName(),
                                         du.getDealershipRole()))
-                                .toList()))
+                                .toList(),
+                        commissionsByUser.getOrDefault(user.getId(), List.of())))
                 .toList();
     }
 }

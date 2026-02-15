@@ -100,7 +100,7 @@ public class InviteService {
                 });
             }
         } else {
-            user = new User(email, email, null, "PENDING");
+            user = new User(email, null, "PENDING");
             Role userRole = roleRepository.findByName("BUYER")
                     .orElseThrow(() -> new IllegalStateException("Role BUYER not found"));
             user.getRoles().add(userRole);

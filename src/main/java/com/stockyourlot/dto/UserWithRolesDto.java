@@ -4,7 +4,8 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * User info with global roles and dealership memberships (for list/get-all responses).
+ * User info with global roles, dealership memberships, and commission rule assignments.
+ * getUser: userCommissionRules = all assignments; getAllUsers: userCommissionRules = active only.
  */
 public record UserWithRolesDto(
         UUID id,
@@ -14,5 +15,6 @@ public record UserWithRolesDto(
         String lastName,
         String phoneNumber,
         List<String> roles,
-        List<DealershipRoleDto> dealershipRoles
+        List<DealershipRoleDto> dealershipRoles,
+        List<UserCommissionAssignmentDto> userCommissionRules
 ) {}

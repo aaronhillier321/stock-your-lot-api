@@ -1,14 +1,13 @@
 package com.stockyourlot.dto;
 
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
-public record RegisterRequest(
-        @NotBlank(message = "Username is required")
-        @Size(min = 2, max = 100)
-        String username,
+import java.util.List;
 
+public record RegisterRequest(
         @NotBlank(message = "Email is required")
         @Email(message = "Email must be valid")
         @Size(max = 255)
@@ -29,5 +28,9 @@ public record RegisterRequest(
         String lastName,
 
         @Size(max = 50)
-        String phoneNumber
+        String phoneNumber,
+
+        /** Optional commission rule assignments for the new user (ruleId, startDate, endDate?, level?, numberOfSales?). */
+        @Valid
+        List<UserCommissionRuleInput> userCommissionRules
 ) {}

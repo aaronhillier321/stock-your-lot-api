@@ -14,38 +14,39 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Optional;
 
 @Service
 public class AuthService {
 
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
+    private final CommissionService commissionService;
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
     private final JwtUtil jwtUtil;
 
     public AuthService(UserRepository userRepository,
                         RoleRepository roleRepository,
+                        CommissionService commissionService,
                         PasswordEncoder passwordEncoder,
                         AuthenticationManager authenticationManager,
                         JwtUtil jwtUtil) {
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
+        this.commissionService = commissionService;
         this.passwordEncoder = passwordEncoder;
         this.authenticationManager = authenticationManager;
         this.jwtUtil = jwtUtil;
     }
 
     public RegisterResult register(RegisterRequest request) {
-        if (userRepository.existsByUsername(request.username())) {
-            return RegisterResult.conflict("Username already taken");
-        }
         if (userRepository.existsByEmail(request.email())) {
             return RegisterResult.conflict("Email already registered");
         }
 
         String passwordHash = passwordEncoder.encode(request.password());
-        User user = new User(request.username(), request.email(), passwordHash);
+        User user = new User(request.email(), passwordHash);
         user.setFirstName(request.firstName());
         user.setLastName(request.lastName());
         user.setPhoneNumber(request.phoneNumber());
@@ -57,6 +58,11 @@ public class AuthService {
                 .orElseThrow(() -> new IllegalStateException("Role " + roleName + " not found in database"));
         user.getRoles().add(role);
         user = userRepository.save(user);
+
+        Optional<String> commissionError = commissionService.assignUserCommissionRules(user, request.userCommissionRules());
+        if (commissionError.isPresent()) {
+            return RegisterResult.conflict(commissionError.get());
+        }
 
         RegisterResponse response = new RegisterResponse(
                 user.getId(),
@@ -71,7 +77,7 @@ public class AuthService {
         User user = userRepository.findByEmail(request.email())
                 .orElseThrow(() -> new BadCredentialsException("Invalid email or password"));
         Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(user.getUsername(), request.password())
+                new UsernamePasswordAuthenticationToken(user.getEmail(), request.password())
         );
         user = (User) authentication.getPrincipal();
         User userWithDealerships = userRepository.findByIdWithDealershipUsers(user.getId()).orElse(user);
@@ -82,7 +88,7 @@ public class AuthService {
                         du.getDealership().getName(),
                         du.getDealershipRole()))
                 .toList();
-        String token = jwtUtil.generateToken(userWithDealerships.getUsername(), userWithDealerships.getEmail(), roleNames);
+        String token = jwtUtil.generateToken(userWithDealerships.getEmail(), roleNames);
         return new LoginResponse("Login successful", userWithDealerships.getUsername(), userWithDealerships.getEmail(),
                 roleNames, dealershipRoles, token);
     }
