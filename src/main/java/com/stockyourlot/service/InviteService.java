@@ -101,8 +101,8 @@ public class InviteService {
             }
         } else {
             user = new User(email, email, null, "PENDING");
-            Role userRole = roleRepository.findByName("USER")
-                    .orElseThrow(() -> new IllegalStateException("Default role USER not found"));
+            Role userRole = roleRepository.findByName("BUYER")
+                    .orElseThrow(() -> new IllegalStateException("Role BUYER not found"));
             user.getRoles().add(userRole);
             user = userRepository.save(user);
             log.info("invite: created pending user id={} for email={}", user.getId(), email);

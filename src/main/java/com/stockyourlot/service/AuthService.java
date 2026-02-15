@@ -46,9 +46,16 @@ public class AuthService {
 
         String passwordHash = passwordEncoder.encode(request.password());
         User user = new User(request.username(), request.email(), passwordHash);
-        Role defaultRole = roleRepository.findByName("USER")
-                .orElseThrow(() -> new IllegalStateException("Default role USER not found in database"));
-        user.getRoles().add(defaultRole);
+        user.setFirstName(request.firstName());
+        user.setLastName(request.lastName());
+        user.setPhoneNumber(request.phoneNumber());
+        String roleName = request.role() != null ? request.role().trim().toUpperCase() : "";
+        if (!java.util.Set.of("BUYER", "DEALER", "ADMIN").contains(roleName)) {
+            return RegisterResult.conflict("Role is required and must be one of: BUYER, DEALER, ADMIN");
+        }
+        Role role = roleRepository.findByName(roleName)
+                .orElseThrow(() -> new IllegalStateException("Role " + roleName + " not found in database"));
+        user.getRoles().add(role);
         user = userRepository.save(user);
 
         RegisterResponse response = new RegisterResponse(

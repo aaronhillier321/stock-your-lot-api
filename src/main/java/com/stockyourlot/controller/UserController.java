@@ -2,6 +2,7 @@ package com.stockyourlot.controller;
 
 import com.stockyourlot.dto.AddDealershipUserRequest;
 import com.stockyourlot.dto.AddRoleRequest;
+import com.stockyourlot.dto.UpdateUserRequest;
 import com.stockyourlot.dto.UserRolesResponse;
 import com.stockyourlot.dto.UserWithRolesDto;
 import com.stockyourlot.entity.User;
@@ -32,7 +33,25 @@ public class UserController {
     }
 
     /**
-     * Add a global role (USER, SALES_ASSOCIATE, SALES_ADMIN) to a user.
+     * Get a user by ID with global roles and dealership memberships.
+     */
+    @GetMapping("/{id}")
+    public ResponseEntity<UserWithRolesDto> getUserById(@PathVariable UUID id) {
+        return ResponseEntity.ok(userService.getById(id));
+    }
+
+    /**
+     * Update a user by ID. Only provided fields are updated (partial update).
+     */
+    @PutMapping("/{id}")
+    public ResponseEntity<UserWithRolesDto> updateUser(
+            @PathVariable UUID id,
+            @Valid @RequestBody UpdateUserRequest request) {
+        return ResponseEntity.ok(userService.update(id, request));
+    }
+
+    /**
+     * Add a global role (BUYER, DEALER, ADMIN) to a user.
      */
     @PostMapping("/roles")
     public ResponseEntity<UserRolesResponse> addRoleToUser(

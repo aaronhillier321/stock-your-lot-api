@@ -1,6 +1,7 @@
 package com.stockyourlot.service;
 
 import com.stockyourlot.dto.DealershipRoleDto;
+import com.stockyourlot.dto.UpdateUserRequest;
 import com.stockyourlot.dto.UserWithRolesDto;
 import com.stockyourlot.entity.Dealership;
 import com.stockyourlot.entity.DealershipUser;
@@ -22,7 +23,7 @@ import java.util.UUID;
 public class UserService {
 
     private static final String DEFAULT_DEALERSHIP_ROLE = "ASSOCIATE";
-    private static final java.util.Set<String> GLOBAL_ROLES = java.util.Set.of("USER", "SALES_ASSOCIATE", "SALES_ADMIN");
+    private static final java.util.Set<String> GLOBAL_ROLES = java.util.Set.of("BUYER", "DEALER", "ADMIN");
 
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
@@ -40,18 +41,19 @@ public class UserService {
     }
 
     /**
-     * Add a global role (USER, SALES_ASSOCIATE, SALES_ADMIN) to a user.
+     * Add a global role (BUYER, DEALER, ADMIN) to a user.
      * Idempotent: if the user already has the role, no error.
      */
     @Transactional
     public User addRoleToUser(String email, String roleName) {
-        if (!GLOBAL_ROLES.contains(roleName)) {
+        String normalized = roleName != null ? roleName.trim().toUpperCase() : "";
+        if (!GLOBAL_ROLES.contains(normalized)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Invalid role. Must be one of: USER, SALES_ASSOCIATE, SALES_ADMIN");
+                    "Invalid role. Must be one of: BUYER, DEALER, ADMIN");
         }
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found: " + email));
-        Role role = roleRepository.findByName(roleName)
+        Role role = roleRepository.findByName(normalized)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unknown role: " + roleName));
         user.getRoles().add(role);
         return userRepository.save(user);
@@ -98,6 +100,73 @@ public class UserService {
     }
 
     /**
+     * Update a user by ID. Only non-null fields in the request are applied.
+     * Username and email must remain unique; 409 if already taken by another user.
+     *
+     * @throws ResponseStatusException 404 if user not found, 409 if username/email taken
+     */
+    @Transactional
+    public UserWithRolesDto update(UUID id, UpdateUserRequest request) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found: " + id));
+
+        if (request.username() != null && !request.username().trim().isEmpty()) {
+            String username = request.username().trim();
+            userRepository.findByUsername(username).ifPresent(other -> {
+                if (!other.getId().equals(id)) {
+                    throw new ResponseStatusException(HttpStatus.CONFLICT, "Username already in use: " + username);
+                }
+            });
+            user.setUsername(username);
+        }
+        if (request.email() != null && !request.email().trim().isEmpty()) {
+            String email = request.email().trim().toLowerCase();
+            userRepository.findByEmail(email).ifPresent(other -> {
+                if (!other.getId().equals(id)) {
+                    throw new ResponseStatusException(HttpStatus.CONFLICT, "Email already in use: " + email);
+                }
+            });
+            user.setEmail(email);
+        }
+        if (request.firstName() != null) {
+            user.setFirstName(request.firstName().trim().isEmpty() ? null : request.firstName().trim());
+        }
+        if (request.lastName() != null) {
+            user.setLastName(request.lastName().trim().isEmpty() ? null : request.lastName().trim());
+        }
+        if (request.phoneNumber() != null) {
+            user.setPhoneNumber(request.phoneNumber().trim().isEmpty() ? null : request.phoneNumber().trim());
+        }
+
+        userRepository.save(user);
+        return getById(id);
+    }
+
+    /**
+     * Returns a user by ID with global roles and dealership memberships.
+     * @throws ResponseStatusException 404 if not found
+     */
+    @Transactional(readOnly = true)
+    public UserWithRolesDto getById(UUID id) {
+        User user = userRepository.findByIdWithDealershipUsers(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found: " + id));
+        return new UserWithRolesDto(
+                user.getId(),
+                user.getUsername(),
+                user.getEmail(),
+                user.getFirstName(),
+                user.getLastName(),
+                user.getPhoneNumber(),
+                user.getRoleNames(),
+                user.getDealershipUsers().stream()
+                        .map(du -> new DealershipRoleDto(
+                                du.getDealership().getId(),
+                                du.getDealership().getName(),
+                                du.getDealershipRole()))
+                        .toList());
+    }
+
+    /**
      * Returns all users with their global roles and dealership memberships.
      */
     @Transactional(readOnly = true)
@@ -107,6 +176,9 @@ public class UserService {
                         user.getId(),
                         user.getUsername(),
                         user.getEmail(),
+                        user.getFirstName(),
+                        user.getLastName(),
+                        user.getPhoneNumber(),
                         user.getRoleNames(),
                         user.getDealershipUsers().stream()
                                 .map(du -> new DealershipRoleDto(

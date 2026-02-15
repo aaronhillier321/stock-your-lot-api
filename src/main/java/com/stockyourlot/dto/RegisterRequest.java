@@ -16,5 +16,18 @@ public record RegisterRequest(
 
         @NotBlank(message = "Password is required")
         @Size(min = 8, message = "Password must be at least 8 characters")
-        String password
+        String password,
+
+        @NotBlank(message = "Role is required (BUYER, DEALER, or ADMIN)")
+        @Size(max = 20)
+        String role,
+
+        @Size(max = 100)
+        String firstName,
+
+        @Size(max = 100)
+        String lastName,
+
+        @Size(max = 50)
+        String phoneNumber
 ) {}

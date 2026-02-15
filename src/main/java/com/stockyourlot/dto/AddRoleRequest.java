@@ -4,7 +4,7 @@ import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 
 /**
- * Request to add a global role (USER, SALES_ASSOCIATE, SALES_ADMIN) to a user.
+ * Request to add a global role (BUYER, DEALER, ADMIN) to a user.
  */
 public record AddRoleRequest(
         @NotBlank(message = "email must not be blank")
