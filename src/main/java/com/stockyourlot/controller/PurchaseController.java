@@ -11,6 +11,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
@@ -25,11 +26,14 @@ public class PurchaseController {
     }
 
     /**
-     * Get all purchases (all buyers). Requires authentication.
+     * Get all purchases (all buyers). Optional date range: startDate and/or endDate (inclusive).
+     * If both omitted, returns all purchases. Requires authentication.
      */
     @GetMapping
-    public ResponseEntity<List<PurchaseResponse>> getAll() {
-        return ResponseEntity.ok(purchaseService.getAll());
+    public ResponseEntity<List<PurchaseResponse>> getAll(
+            @RequestParam(required = false) LocalDate startDate,
+            @RequestParam(required = false) LocalDate endDate) {
+        return ResponseEntity.ok(purchaseService.getAll(startDate, endDate));
     }
 
     /**

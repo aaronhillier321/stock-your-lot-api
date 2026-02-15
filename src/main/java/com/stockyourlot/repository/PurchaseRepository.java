@@ -5,6 +5,9 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import org.springframework.data.domain.Sort;
+
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
@@ -13,6 +16,12 @@ public interface PurchaseRepository extends JpaRepository<Purchase, UUID> {
     List<Purchase> findByBuyerIdOrderByCreatedAtDesc(UUID buyerId);
 
     List<Purchase> findByDealership_IdOrderByCreatedAtDesc(UUID dealershipId);
+
+    List<Purchase> findByPurchaseDateBetween(LocalDate startInclusive, LocalDate endInclusive, Sort sort);
+
+    List<Purchase> findByPurchaseDateGreaterThanEqual(LocalDate startInclusive, Sort sort);
+
+    List<Purchase> findByPurchaseDateLessThanEqual(LocalDate endInclusive, Sort sort);
 
     long countByDealership_Id(UUID dealershipId);
 

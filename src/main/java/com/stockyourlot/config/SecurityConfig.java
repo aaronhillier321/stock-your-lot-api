@@ -44,6 +44,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/login", "/api/register").permitAll()
                         .requestMatchers("/api/invites/validate", "/api/invites/accept").permitAll()
                         .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
+                        .requestMatchers("/error", "/error/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/bill-of-sale/extract").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/condition-report/extract").permitAll()
                         .requestMatchers(req -> "stock-your-lot".equals(req.getHeader("X-API-Key"))).permitAll()

@@ -16,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.io.IOException;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -42,9 +43,20 @@ public class PurchaseService {
         return toResponse(p, fileIdsMap.getOrDefault(p.getId(), new BillAndConditionReportFileIds(null, null)));
     }
 
+    private static final Sort DEFAULT_PURCHASE_SORT = Sort.by(Sort.Direction.DESC, "createdAt");
+
     @Transactional(readOnly = true)
-    public List<PurchaseResponse> getAll() {
-        List<Purchase> purchases = purchaseRepository.findAll(Sort.by(Sort.Direction.DESC, "createdAt"));
+    public List<PurchaseResponse> getAll(LocalDate startDate, LocalDate endDate) {
+        List<Purchase> purchases;
+        if (startDate != null && endDate != null) {
+            purchases = purchaseRepository.findByPurchaseDateBetween(startDate, endDate, DEFAULT_PURCHASE_SORT);
+        } else if (startDate != null) {
+            purchases = purchaseRepository.findByPurchaseDateGreaterThanEqual(startDate, DEFAULT_PURCHASE_SORT);
+        } else if (endDate != null) {
+            purchases = purchaseRepository.findByPurchaseDateLessThanEqual(endDate, DEFAULT_PURCHASE_SORT);
+        } else {
+            purchases = purchaseRepository.findAll(DEFAULT_PURCHASE_SORT);
+        }
         return toResponseListWithFileIds(purchases);
     }
 

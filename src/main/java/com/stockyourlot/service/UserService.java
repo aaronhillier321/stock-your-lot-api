@@ -16,7 +16,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -136,6 +138,22 @@ public class UserService {
         }
         if (request.phoneNumber() != null) {
             user.setPhoneNumber(request.phoneNumber().trim().isEmpty() ? null : request.phoneNumber().trim());
+        }
+
+        if (request.roles() != null) {
+            Set<Role> newRoles = new HashSet<>();
+            for (String roleName : request.roles()) {
+                String normalized = roleName != null ? roleName.trim().toUpperCase() : "";
+                if (normalized.isEmpty()) continue;
+                if (!GLOBAL_ROLES.contains(normalized)) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                            "Invalid role: " + roleName + ". Must be one of: BUYER, DEALER, ADMIN");
+                }
+                Role role = roleRepository.findByName(normalized)
+                        .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unknown role: " + normalized));
+                newRoles.add(role);
+            }
+            user.setRoles(newRoles);
         }
 
         userRepository.save(user);
