@@ -1,6 +1,7 @@
 package com.stockyourlot.controller;
 
 import com.stockyourlot.dto.CreateDealershipRequest;
+import com.stockyourlot.dto.DealershipPremiumSummaryDto;
 import com.stockyourlot.dto.DealershipResponse;
 import com.stockyourlot.dto.UpdateDealershipRequest;
 import com.stockyourlot.dto.PurchaseResponse;
@@ -51,6 +52,11 @@ public class DealershipController {
     @GetMapping("/{id}/purchases")
     public ResponseEntity<List<PurchaseResponse>> getDealershipPurchases(@PathVariable UUID id) {
         return ResponseEntity.ok(purchaseService.getByDealershipId(id));
+    }
+
+    @GetMapping("/{id}/premium-summary")
+    public ResponseEntity<DealershipPremiumSummaryDto> getPremiumSummary(@PathVariable UUID id) {
+        return ResponseEntity.ok(dealershipService.getPremiumSummary(id));
     }
 
     @GetMapping

@@ -1,6 +1,7 @@
 package com.stockyourlot.service;
 
 import com.stockyourlot.dto.CreateDealershipRequest;
+import com.stockyourlot.dto.DealershipPremiumSummaryDto;
 import com.stockyourlot.dto.DealershipResponse;
 import com.stockyourlot.dto.DealerPremiumAssignmentDto;
 import com.stockyourlot.dto.UpdateDealershipRequest;
@@ -8,12 +9,15 @@ import com.stockyourlot.entity.DealerPremium;
 import com.stockyourlot.entity.Dealership;
 import com.stockyourlot.repository.DealerPremiumRepository;
 import com.stockyourlot.repository.DealershipRepository;
+import com.stockyourlot.repository.PurchasePremiumRepository;
 import com.stockyourlot.repository.PurchaseRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.math.BigDecimal;
+import java.time.YearMonth;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -25,13 +29,16 @@ public class DealershipService {
 
     private final DealershipRepository dealershipRepository;
     private final PurchaseRepository purchaseRepository;
+    private final PurchasePremiumRepository purchasePremiumRepository;
     private final DealerPremiumRepository dealerPremiumRepository;
     private final PremiumService premiumService;
 
     public DealershipService(DealershipRepository dealershipRepository, PurchaseRepository purchaseRepository,
+                             PurchasePremiumRepository purchasePremiumRepository,
                              DealerPremiumRepository dealerPremiumRepository, PremiumService premiumService) {
         this.dealershipRepository = dealershipRepository;
         this.purchaseRepository = purchaseRepository;
+        this.purchasePremiumRepository = purchasePremiumRepository;
         this.dealerPremiumRepository = dealerPremiumRepository;
         this.premiumService = premiumService;
     }
@@ -63,6 +70,18 @@ public class DealershipService {
                 .map(this::toDealerPremiumAssignmentDto)
                 .toList();
         return toResponse(dealership, purchaseCount, premiumDtos);
+    }
+
+    @Transactional(readOnly = true)
+    public DealershipPremiumSummaryDto getPremiumSummary(UUID dealershipId) {
+        dealershipRepository.findById(dealershipId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Dealership not found: " + dealershipId));
+        YearMonth currentMonth = YearMonth.now();
+        long purchasesThisMonth = purchaseRepository.countByDealership_IdAndPurchaseDateBetween(
+                dealershipId, currentMonth.atDay(1), currentMonth.atEndOfMonth());
+        BigDecimal totalPremiums = purchasePremiumRepository.sumAmountByDealership_Id(dealershipId);
+        if (totalPremiums == null) totalPremiums = BigDecimal.ZERO;
+        return new DealershipPremiumSummaryDto(purchasesThisMonth, totalPremiums, totalPremiums);
     }
 
     private DealerPremiumAssignmentDto toDealerPremiumAssignmentDto(DealerPremium dp) {

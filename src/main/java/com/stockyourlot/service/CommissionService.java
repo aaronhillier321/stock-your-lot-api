@@ -2,6 +2,7 @@ package com.stockyourlot.service;
 
 import com.stockyourlot.dto.CommissionRuleResponse;
 import com.stockyourlot.dto.CreateCommissionRuleRequest;
+import com.stockyourlot.dto.UpdateCommissionRuleRequest;
 import com.stockyourlot.dto.UserCommissionRuleInput;
 import com.stockyourlot.entity.CommissionRule;
 import com.stockyourlot.entity.CommissionType;
@@ -16,8 +17,10 @@ import com.stockyourlot.repository.PurchaseRepository;
 import com.stockyourlot.repository.UserCommissionRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -65,6 +68,25 @@ public class CommissionService {
         rule.setCommissionType(request.commissionType());
         rule = commissionRuleRepository.save(rule);
         return new CommissionRuleResponse(rule.getId(), rule.getRuleName(), rule.getAmount(), rule.getCommissionType());
+    }
+
+    @Transactional
+    public CommissionRuleResponse updateRule(UUID id, UpdateCommissionRuleRequest request) {
+        CommissionRule rule = commissionRuleRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Commission rule not found: " + id));
+        if (request.ruleName() != null) rule.setRuleName(request.ruleName().trim());
+        if (request.amount() != null) rule.setAmount(request.amount());
+        if (request.commissionType() != null) rule.setCommissionType(request.commissionType());
+        rule = commissionRuleRepository.save(rule);
+        return new CommissionRuleResponse(rule.getId(), rule.getRuleName(), rule.getAmount(), rule.getCommissionType());
+    }
+
+    @Transactional
+    public void deleteRule(UUID id) {
+        if (!commissionRuleRepository.existsById(id)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Commission rule not found: " + id);
+        }
+        commissionRuleRepository.deleteById(id);
     }
 
     /**

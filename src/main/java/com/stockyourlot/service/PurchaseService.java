@@ -24,6 +24,7 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 public class PurchaseService {
@@ -161,8 +162,11 @@ public class PurchaseService {
         if (purchases.isEmpty()) return List.of();
         List<UUID> ids = purchases.stream().map(Purchase::getId).toList();
         Map<UUID, BillAndConditionReportFileIds> fileIdsMap = fileMetadataService.getBillAndConditionReportFileIdsByPurchaseIds(ids);
+        Map<UUID, BigDecimal> serviceFeeMap = purchasePremiumRepository.sumAmountByPurchaseIds(ids).stream()
+                .collect(Collectors.toMap(row -> (UUID) row[0], row -> (BigDecimal) row[1]));
         return purchases.stream()
-                .map(p -> toResponse(p, fileIdsMap.getOrDefault(p.getId(), new BillAndConditionReportFileIds(null, null)), List.of(), null))
+                .map(p -> toResponse(p, fileIdsMap.getOrDefault(p.getId(), new BillAndConditionReportFileIds(null, null)), List.of(),
+                        serviceFeeMap.getOrDefault(p.getId(), BigDecimal.ZERO)))
                 .toList();
     }
 

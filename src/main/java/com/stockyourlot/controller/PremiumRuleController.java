@@ -2,6 +2,7 @@ package com.stockyourlot.controller;
 
 import com.stockyourlot.dto.CreatePremiumRuleRequest;
 import com.stockyourlot.dto.PremiumRuleResponse;
+import com.stockyourlot.dto.UpdatePremiumRuleRequest;
 import com.stockyourlot.service.PremiumService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -9,6 +10,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/premium-rules")
@@ -29,5 +31,18 @@ public class PremiumRuleController {
     public ResponseEntity<PremiumRuleResponse> createRule(@Valid @RequestBody CreatePremiumRuleRequest request) {
         PremiumRuleResponse response = premiumService.createRule(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<PremiumRuleResponse> updateRule(
+            @PathVariable UUID id,
+            @Valid @RequestBody UpdatePremiumRuleRequest request) {
+        return ResponseEntity.ok(premiumService.updateRule(id, request));
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteRule(@PathVariable UUID id) {
+        premiumService.deleteRule(id);
+        return ResponseEntity.noContent().build();
     }
 }

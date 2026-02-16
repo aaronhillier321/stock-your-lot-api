@@ -3,6 +3,7 @@ package com.stockyourlot.service;
 import com.stockyourlot.dto.DealerPremiumRuleInput;
 import com.stockyourlot.dto.PremiumRuleResponse;
 import com.stockyourlot.dto.CreatePremiumRuleRequest;
+import com.stockyourlot.dto.UpdatePremiumRuleRequest;
 import com.stockyourlot.entity.*;
 import com.stockyourlot.repository.DealerPremiumRepository;
 import com.stockyourlot.repository.PremiumRuleRepository;
@@ -10,8 +11,10 @@ import com.stockyourlot.repository.PurchasePremiumRepository;
 import com.stockyourlot.repository.PurchaseRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -58,6 +61,25 @@ public class PremiumService {
         rule.setPremiumType(request.premiumType());
         rule = premiumRuleRepository.save(rule);
         return new PremiumRuleResponse(rule.getId(), rule.getRuleName(), rule.getAmount(), rule.getPremiumType());
+    }
+
+    @Transactional
+    public PremiumRuleResponse updateRule(UUID id, UpdatePremiumRuleRequest request) {
+        PremiumRule rule = premiumRuleRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Premium rule not found: " + id));
+        if (request.ruleName() != null) rule.setRuleName(request.ruleName().trim());
+        if (request.amount() != null) rule.setAmount(request.amount());
+        if (request.premiumType() != null) rule.setPremiumType(request.premiumType());
+        rule = premiumRuleRepository.save(rule);
+        return new PremiumRuleResponse(rule.getId(), rule.getRuleName(), rule.getAmount(), rule.getPremiumType());
+    }
+
+    @Transactional
+    public void deleteRule(UUID id) {
+        if (!premiumRuleRepository.existsById(id)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Premium rule not found: " + id);
+        }
+        premiumRuleRepository.deleteById(id);
     }
 
     @Transactional
