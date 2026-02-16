@@ -27,6 +27,8 @@ public interface PurchaseRepository extends JpaRepository<Purchase, UUID> {
 
     long countByBuyer_IdAndPurchaseDateBetween(UUID buyerId, LocalDate startInclusive, LocalDate endInclusive);
 
+    long countByDealership_IdAndPurchaseDateBetween(UUID dealershipId, LocalDate startInclusive, LocalDate endInclusive);
+
     @Query("SELECT p.dealership.id, COUNT(p) FROM Purchase p WHERE p.dealership.id IN :ids GROUP BY p.dealership.id")
     List<Object[]> countByDealershipIds(@Param("ids") List<UUID> ids);
 }

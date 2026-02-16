@@ -10,5 +10,6 @@ public record PurchaseCommissionItemDto(
         UUID userId,
         String userUsername,
         UUID ruleId,
+        String ruleName,
         BigDecimal amount
 ) {}

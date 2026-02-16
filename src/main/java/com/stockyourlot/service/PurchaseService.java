@@ -10,6 +10,7 @@ import com.stockyourlot.entity.User;
 import com.stockyourlot.service.FileMetadataService.BillAndConditionReportFileIds;
 import com.stockyourlot.repository.DealershipRepository;
 import com.stockyourlot.repository.PurchaseCommissionRepository;
+import com.stockyourlot.repository.PurchasePremiumRepository;
 import com.stockyourlot.repository.PurchaseRepository;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
@@ -18,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
@@ -29,17 +31,23 @@ public class PurchaseService {
     private final PurchaseRepository purchaseRepository;
     private final DealershipRepository dealershipRepository;
     private final PurchaseCommissionRepository purchaseCommissionRepository;
+    private final PurchasePremiumRepository purchasePremiumRepository;
     private final FileMetadataService fileMetadataService;
     private final CommissionService commissionService;
+    private final PremiumService premiumService;
 
     public PurchaseService(PurchaseRepository purchaseRepository, DealershipRepository dealershipRepository,
                            PurchaseCommissionRepository purchaseCommissionRepository,
-                           FileMetadataService fileMetadataService, CommissionService commissionService) {
+                           PurchasePremiumRepository purchasePremiumRepository,
+                           FileMetadataService fileMetadataService, CommissionService commissionService,
+                           PremiumService premiumService) {
         this.purchaseRepository = purchaseRepository;
         this.dealershipRepository = dealershipRepository;
         this.purchaseCommissionRepository = purchaseCommissionRepository;
+        this.purchasePremiumRepository = purchasePremiumRepository;
         this.fileMetadataService = fileMetadataService;
         this.commissionService = commissionService;
+        this.premiumService = premiumService;
     }
 
     @Transactional(readOnly = true)
@@ -53,9 +61,14 @@ public class PurchaseService {
                         pc.getUser().getId(),
                         pc.getUser().getUsername(),
                         pc.getRule() != null ? pc.getRule().getId() : null,
+                        pc.getRule() != null ? pc.getRule().getRuleName() : null,
                         pc.getAmount()))
                 .toList();
-        return toResponse(p, fileIdsMap.getOrDefault(p.getId(), new BillAndConditionReportFileIds(null, null)), commissions);
+        BigDecimal serviceFee = purchasePremiumRepository.findByPurchase_IdOrderByCreatedAtAsc(p.getId())
+                .stream()
+                .map(pp -> pp.getAmount() != null ? pp.getAmount() : BigDecimal.ZERO)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        return toResponse(p, fileIdsMap.getOrDefault(p.getId(), new BillAndConditionReportFileIds(null, null)), commissions, serviceFee);
     }
 
     private static final Sort DEFAULT_PURCHASE_SORT = Sort.by(Sort.Direction.DESC, "createdAt");
@@ -114,8 +127,10 @@ public class PurchaseService {
         }
         commissionService.recordCommissionsForPurchase(p);
         commissionService.expireUserCommissionRulesIfApplicable(buyer.getId(), p.getPurchaseDate());
+        premiumService.recordPremiumsForPurchase(p);
+        premiumService.expireDealerPremiumRulesIfApplicable(dealership.getId(), p.getPurchaseDate());
         Map<UUID, BillAndConditionReportFileIds> fileIdsMap = fileMetadataService.getBillAndConditionReportFileIdsByPurchaseIds(List.of(p.getId()));
-        return toResponse(p, fileIdsMap.getOrDefault(p.getId(), new BillAndConditionReportFileIds(null, null)), List.of());
+        return toResponse(p, fileIdsMap.getOrDefault(p.getId(), new BillAndConditionReportFileIds(null, null)), List.of(), null);
     }
 
     @Transactional
@@ -139,7 +154,7 @@ public class PurchaseService {
         if (request.transportQuote() != null) p.setTransportQuote(request.transportQuote());
         p = purchaseRepository.save(p);
         Map<UUID, BillAndConditionReportFileIds> fileIdsMap = fileMetadataService.getBillAndConditionReportFileIdsByPurchaseIds(List.of(p.getId()));
-        return toResponse(p, fileIdsMap.getOrDefault(p.getId(), new BillAndConditionReportFileIds(null, null)), List.of());
+        return toResponse(p, fileIdsMap.getOrDefault(p.getId(), new BillAndConditionReportFileIds(null, null)), List.of(), null);
     }
 
     private List<PurchaseResponse> toResponseListWithFileIds(List<Purchase> purchases) {
@@ -147,11 +162,11 @@ public class PurchaseService {
         List<UUID> ids = purchases.stream().map(Purchase::getId).toList();
         Map<UUID, BillAndConditionReportFileIds> fileIdsMap = fileMetadataService.getBillAndConditionReportFileIdsByPurchaseIds(ids);
         return purchases.stream()
-                .map(p -> toResponse(p, fileIdsMap.getOrDefault(p.getId(), new BillAndConditionReportFileIds(null, null)), List.of()))
+                .map(p -> toResponse(p, fileIdsMap.getOrDefault(p.getId(), new BillAndConditionReportFileIds(null, null)), List.of(), null))
                 .toList();
     }
 
-    private PurchaseResponse toResponse(Purchase p, BillAndConditionReportFileIds fileIds, List<PurchaseCommissionItemDto> commissions) {
+    private PurchaseResponse toResponse(Purchase p, BillAndConditionReportFileIds fileIds, List<PurchaseCommissionItemDto> commissions, BigDecimal serviceFee) {
         Dealership d = p.getDealership();
         User buyer = p.getBuyer();
         return new PurchaseResponse(
@@ -174,7 +189,8 @@ public class PurchaseService {
                 p.getCreatedAt(),
                 fileIds != null ? fileIds.billOfSaleFileId() : null,
                 fileIds != null ? fileIds.conditionReportFileId() : null,
-                commissions != null ? commissions : List.of()
+                commissions != null ? commissions : List.of(),
+                serviceFee != null ? serviceFee : BigDecimal.ZERO
         );
     }
 }

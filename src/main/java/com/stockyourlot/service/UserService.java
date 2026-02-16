@@ -32,7 +32,7 @@ import java.util.stream.Collectors;
 @Service
 public class UserService {
 
-    private static final String DEFAULT_DEALERSHIP_ROLE = "ASSOCIATE";
+    private static final String DEFAULT_DEALERSHIP_ROLE = "BUYER";
     private static final java.util.Set<String> GLOBAL_ROLES = java.util.Set.of("BUYER", "DEALER", "ADMIN");
 
     private final UserRepository userRepository;
@@ -76,8 +76,8 @@ public class UserService {
     }
 
     /**
-     * Add a user to a dealership with the given role (ASSOCIATE or ADMIN).
-     * Defaults to ASSOCIATE if role is null or not provided.
+     * Add a user to a dealership with the given role (BUYER or ADMIN).
+     * Defaults to BUYER if role is null or not provided.
      */
     @Transactional
     public User addUserToDealership(String email, UUID dealershipId, String role) {
@@ -86,7 +86,7 @@ public class UserService {
         Dealership dealership = dealershipRepository.findById(dealershipId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Dealership not found: " + dealershipId));
 
-        String dealershipRole = (role != null && (role.equals("ADMIN") || role.equals("ASSOCIATE")))
+        String dealershipRole = (role != null && (role.equals("ADMIN") || role.equals("BUYER")))
                 ? role : DEFAULT_DEALERSHIP_ROLE;
 
         var existing = dealershipUserRepository.findByUser_IdAndDealership_Id(user.getId(), dealershipId);
@@ -99,6 +99,22 @@ public class UserService {
             userRepository.save(user);
         }
         return userRepository.findById(user.getId()).orElseThrow();
+    }
+
+    /**
+     * Remove a user from a dealership (removes the dealership membership).
+     *
+     * @throws ResponseStatusException 404 if user or dealership not found
+     */
+    @Transactional
+    public void removeUserFromDealership(UUID userId, UUID dealershipId) {
+        if (!userRepository.existsById(userId)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found: " + userId);
+        }
+        if (!dealershipRepository.existsById(dealershipId)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Dealership not found: " + dealershipId);
+        }
+        dealershipUserRepository.deleteByUser_IdAndDealership_Id(userId, dealershipId);
     }
 
     /**

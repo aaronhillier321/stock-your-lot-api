@@ -187,7 +187,7 @@ public class InviteService {
         inviteRepository.save(invite);
         log.debug("acceptInvite: marked invite id={} as ACCEPTED", invite.getId());
 
-        userService.addUserToDealership(user.getEmail(), invite.getDealership().getId(), "ASSOCIATE");
+        userService.addUserToDealership(user.getEmail(), invite.getDealership().getId(), "BUYER");
         log.info("acceptInvite: added user to dealership id={}, invite flow complete for email={}", invite.getDealership().getId(), user.getEmail());
     }
 }

@@ -25,7 +25,7 @@ public class DealershipUser {
     private Dealership dealership;
 
     @Column(name = "role", nullable = false, length = 20)
-    private String dealershipRole = "ASSOCIATE";
+    private String dealershipRole = "BUYER";
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
@@ -48,8 +48,8 @@ public class DealershipUser {
     public DealershipUser(User user, Dealership dealership, String dealershipRole) {
         this.user = user;
         this.dealership = dealership;
-        this.dealershipRole = (dealershipRole != null && (dealershipRole.equals("ADMIN") || dealershipRole.equals("ASSOCIATE")))
-                ? dealershipRole : "ASSOCIATE";
+        this.dealershipRole = (dealershipRole != null && (dealershipRole.equals("ADMIN") || dealershipRole.equals("BUYER")))
+                ? dealershipRole : "BUYER";
     }
 
     public UUID getId() {
@@ -81,7 +81,7 @@ public class DealershipUser {
     }
 
     public void setDealershipRole(String dealershipRole) {
-        if (dealershipRole != null && (dealershipRole.equals("ADMIN") || dealershipRole.equals("ASSOCIATE"))) {
+        if (dealershipRole != null && (dealershipRole.equals("ADMIN") || dealershipRole.equals("BUYER"))) {
             this.dealershipRole = dealershipRole;
         }
     }

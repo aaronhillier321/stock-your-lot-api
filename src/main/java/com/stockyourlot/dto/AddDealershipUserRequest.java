@@ -12,6 +12,6 @@ public record AddDealershipUserRequest(
         String email,
         @NotNull(message = "dealershipId must not be null")
         UUID dealershipId,
-        /** Optional. ASSOCIATE or ADMIN; defaults to ASSOCIATE if null or blank. */
+        /** Optional. BUYER or ADMIN; defaults to BUYER if null or blank. */
         String role
 ) {}

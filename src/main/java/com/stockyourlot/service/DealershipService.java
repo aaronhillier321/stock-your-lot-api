@@ -2,8 +2,11 @@ package com.stockyourlot.service;
 
 import com.stockyourlot.dto.CreateDealershipRequest;
 import com.stockyourlot.dto.DealershipResponse;
+import com.stockyourlot.dto.DealerPremiumAssignmentDto;
 import com.stockyourlot.dto.UpdateDealershipRequest;
+import com.stockyourlot.entity.DealerPremium;
 import com.stockyourlot.entity.Dealership;
+import com.stockyourlot.repository.DealerPremiumRepository;
 import com.stockyourlot.repository.DealershipRepository;
 import com.stockyourlot.repository.PurchaseRepository;
 import org.springframework.http.HttpStatus;
@@ -13,6 +16,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -21,10 +25,15 @@ public class DealershipService {
 
     private final DealershipRepository dealershipRepository;
     private final PurchaseRepository purchaseRepository;
+    private final DealerPremiumRepository dealerPremiumRepository;
+    private final PremiumService premiumService;
 
-    public DealershipService(DealershipRepository dealershipRepository, PurchaseRepository purchaseRepository) {
+    public DealershipService(DealershipRepository dealershipRepository, PurchaseRepository purchaseRepository,
+                             DealerPremiumRepository dealerPremiumRepository, PremiumService premiumService) {
         this.dealershipRepository = dealershipRepository;
         this.purchaseRepository = purchaseRepository;
+        this.dealerPremiumRepository = dealerPremiumRepository;
+        this.premiumService = premiumService;
     }
 
     @Transactional
@@ -37,7 +46,11 @@ public class DealershipService {
         dealership.setPostalCode(request.postalCode());
         dealership.setPhone(request.phone());
         dealership = dealershipRepository.save(dealership);
-        return toResponse(dealership, 0L);
+        Optional<String> premiumError = premiumService.assignDealerPremiumRules(dealership, request.dealerPremiumRules());
+        if (premiumError.isPresent()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, premiumError.get());
+        }
+        return getById(dealership.getId());
     }
 
     @Transactional(readOnly = true)
@@ -45,7 +58,24 @@ public class DealershipService {
         Dealership dealership = dealershipRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Dealership not found: " + id));
         long purchaseCount = purchaseRepository.countByDealership_Id(id);
-        return toResponse(dealership, purchaseCount);
+        List<DealerPremiumAssignmentDto> premiumDtos = dealerPremiumRepository.findByDealership_IdWithRuleOrderByLevelDesc(id)
+                .stream()
+                .map(this::toDealerPremiumAssignmentDto)
+                .toList();
+        return toResponse(dealership, purchaseCount, premiumDtos);
+    }
+
+    private DealerPremiumAssignmentDto toDealerPremiumAssignmentDto(DealerPremium dp) {
+        var rule = dp.getRule();
+        return new DealerPremiumAssignmentDto(
+                rule != null ? rule.getId() : null,
+                rule != null ? rule.getAmount() : null,
+                rule != null ? rule.getPremiumType() : null,
+                dp.getStartDate(),
+                dp.getEndDate(),
+                dp.getLevel(),
+                dp.getNumberOfSales(),
+                dp.getStatus());
     }
 
     @Transactional
@@ -60,22 +90,34 @@ public class DealershipService {
         if (request.postalCode() != null) dealership.setPostalCode(request.postalCode());
         if (request.phone() != null) dealership.setPhone(request.phone());
         dealership = dealershipRepository.save(dealership);
-        long purchaseCount = purchaseRepository.countByDealership_Id(id);
-        return toResponse(dealership, purchaseCount);
+        if (request.dealerPremiumRules() != null) {
+            dealerPremiumRepository.deleteByDealership_Id(id);
+            Optional<String> premiumError = premiumService.assignDealerPremiumRules(dealership, request.dealerPremiumRules());
+            if (premiumError.isPresent()) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, premiumError.get());
+            }
+        }
+        return getById(id);
     }
 
     @Transactional(readOnly = true)
     public List<DealershipResponse> getAll() {
         List<Dealership> list = dealershipRepository.findAll();
+        if (list.isEmpty()) return List.of();
         List<UUID> ids = list.stream().map(Dealership::getId).toList();
-        Map<UUID, Long> counts = ids.isEmpty() ? Map.of() : purchaseRepository.countByDealershipIds(ids).stream()
+        Map<UUID, Long> counts = purchaseRepository.countByDealershipIds(ids).stream()
                 .collect(Collectors.toMap(row -> (UUID) row[0], row -> (Long) row[1]));
+        List<DealerPremium> activePremiums = dealerPremiumRepository.findByDealership_IdInAndStatusWithRuleOrderByLevelDesc(
+                ids, com.stockyourlot.entity.DealerPremiumStatus.ACTIVE);
+        Map<UUID, List<DealerPremiumAssignmentDto>> premiumsByDealership = activePremiums.stream()
+                .collect(Collectors.groupingBy(dp -> dp.getDealership().getId(),
+                        Collectors.mapping(this::toDealerPremiumAssignmentDto, Collectors.toList())));
         return list.stream()
-                .map(d -> toResponse(d, counts.getOrDefault(d.getId(), 0L)))
+                .map(d -> toResponse(d, counts.getOrDefault(d.getId(), 0L), premiumsByDealership.getOrDefault(d.getId(), List.of())))
                 .toList();
     }
 
-    private DealershipResponse toResponse(Dealership d, long purchaseCount) {
+    private DealershipResponse toResponse(Dealership d, long purchaseCount, List<DealerPremiumAssignmentDto> dealerPremiumRules) {
         return new DealershipResponse(
                 d.getId(),
                 d.getName(),
@@ -86,7 +128,8 @@ public class DealershipService {
                 d.getPostalCode(),
                 d.getPhone(),
                 d.getCreatedAt(),
-                purchaseCount
+                purchaseCount,
+                dealerPremiumRules != null ? dealerPremiumRules : List.of()
         );
     }
 }

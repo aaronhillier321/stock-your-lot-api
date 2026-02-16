@@ -1,6 +1,7 @@
 package com.stockyourlot.dto;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 public record DealershipResponse(
@@ -13,5 +14,6 @@ public record DealershipResponse(
         String postalCode,
         String phone,
         Instant createdAt,
-        long purchaseCount
+        long purchaseCount,
+        List<DealerPremiumAssignmentDto> dealerPremiumRules
 ) {}

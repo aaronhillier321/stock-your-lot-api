@@ -66,8 +66,8 @@ public class UserController {
     }
 
     /**
-     * Add a user to a dealership with an optional role (ASSOCIATE or ADMIN).
-     * Defaults to ASSOCIATE if role is not provided.
+     * Add a user to a dealership with an optional role (BUYER or ADMIN).
+     * Defaults to BUYER if role is not provided.
      */
     @PostMapping("/dealerships")
     public ResponseEntity<UserRolesResponse> addUserToDealership(
@@ -82,6 +82,17 @@ public class UserController {
                 user.getEmail(),
                 user.getRoleNames()
         ));
+    }
+
+    /**
+     * Remove a user from a dealership (removes the dealership membership).
+     */
+    @DeleteMapping("/{id}/dealerships/{dealershipId}")
+    public ResponseEntity<Void> removeUserFromDealership(
+            @PathVariable UUID id,
+            @PathVariable UUID dealershipId) {
+        userService.removeUserFromDealership(id, dealershipId);
+        return ResponseEntity.noContent().build();
     }
 
     /**

@@ -1,7 +1,10 @@
 package com.stockyourlot.dto;
 
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
+
+import java.util.List;
 
 public record CreateDealershipRequest(
         @NotBlank(message = "name must not be blank")
@@ -18,5 +21,7 @@ public record CreateDealershipRequest(
         @Size(max = 20)
         String postalCode,
         @Size(max = 50)
-        String phone
+        String phone,
+        @Valid
+        List<DealerPremiumRuleInput> dealerPremiumRules
 ) {}

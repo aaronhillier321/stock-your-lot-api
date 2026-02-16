@@ -9,4 +9,6 @@ import java.util.UUID;
 public interface DealershipUserRepository extends JpaRepository<DealershipUser, UUID> {
 
     Optional<DealershipUser> findByUser_IdAndDealership_Id(UUID userId, UUID dealershipId);
+
+    void deleteByUser_IdAndDealership_Id(UUID userId, UUID dealershipId);
 }

@@ -6,6 +6,7 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
+
 public record PurchaseResponse(
         UUID id,
         UUID buyerId,
@@ -26,5 +27,6 @@ public record PurchaseResponse(
         Instant createdAt,
         UUID billOfSaleFileId,
         UUID conditionReportFileId,
-        List<PurchaseCommissionItemDto> commissions
+        List<PurchaseCommissionItemDto> commissions,
+        BigDecimal serviceFee
 ) {}
