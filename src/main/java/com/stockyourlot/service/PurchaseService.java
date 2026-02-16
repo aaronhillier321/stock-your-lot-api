@@ -6,6 +6,7 @@ import com.stockyourlot.dto.PurchaseResponse;
 import com.stockyourlot.dto.UpdatePurchaseRequest;
 import com.stockyourlot.entity.Dealership;
 import com.stockyourlot.entity.Purchase;
+import com.stockyourlot.entity.PurchaseCommission;
 import com.stockyourlot.entity.User;
 import com.stockyourlot.service.FileMetadataService.BillAndConditionReportFileIds;
 import com.stockyourlot.repository.DealershipRepository;
@@ -164,10 +165,24 @@ public class PurchaseService {
         Map<UUID, BillAndConditionReportFileIds> fileIdsMap = fileMetadataService.getBillAndConditionReportFileIdsByPurchaseIds(ids);
         Map<UUID, BigDecimal> serviceFeeMap = purchasePremiumRepository.sumAmountByPurchaseIds(ids).stream()
                 .collect(Collectors.toMap(row -> (UUID) row[0], row -> (BigDecimal) row[1]));
+        Map<UUID, List<PurchaseCommissionItemDto>> commissionsByPurchaseId = purchaseCommissionRepository
+                .findByPurchase_IdInWithUserAndRuleOrderByCreatedAtAsc(ids).stream()
+                .collect(Collectors.groupingBy(pc -> pc.getPurchase().getId(),
+                        Collectors.mapping(this::toCommissionItemDto, Collectors.toList())));
         return purchases.stream()
-                .map(p -> toResponse(p, fileIdsMap.getOrDefault(p.getId(), new BillAndConditionReportFileIds(null, null)), List.of(),
+                .map(p -> toResponse(p, fileIdsMap.getOrDefault(p.getId(), new BillAndConditionReportFileIds(null, null)),
+                        commissionsByPurchaseId.getOrDefault(p.getId(), List.of()),
                         serviceFeeMap.getOrDefault(p.getId(), BigDecimal.ZERO)))
                 .toList();
+    }
+
+    private PurchaseCommissionItemDto toCommissionItemDto(PurchaseCommission pc) {
+        return new PurchaseCommissionItemDto(
+                pc.getUser().getId(),
+                pc.getUser().getUsername(),
+                pc.getRule() != null ? pc.getRule().getId() : null,
+                pc.getRule() != null ? pc.getRule().getRuleName() : null,
+                pc.getAmount());
     }
 
     private PurchaseResponse toResponse(Purchase p, BillAndConditionReportFileIds fileIds, List<PurchaseCommissionItemDto> commissions, BigDecimal serviceFee) {
