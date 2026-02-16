@@ -1,10 +1,14 @@
 package com.stockyourlot.controller;
 
+import com.stockyourlot.dto.AddDealerPremiumRequest;
 import com.stockyourlot.dto.CreateDealershipRequest;
 import com.stockyourlot.dto.DealershipPremiumSummaryDto;
 import com.stockyourlot.dto.DealershipResponse;
-import com.stockyourlot.dto.UpdateDealershipRequest;
+import com.stockyourlot.dto.DealerPremiumAssignmentDto;
 import com.stockyourlot.dto.PurchaseResponse;
+import com.stockyourlot.dto.UpdateDealerPremiumRequest;
+import com.stockyourlot.dto.UpdateDealershipRequest;
+import com.stockyourlot.dto.UserAtDealershipDto;
 import com.stockyourlot.service.DealershipService;
 import com.stockyourlot.service.PurchaseService;
 import jakarta.validation.Valid;
@@ -57,6 +61,54 @@ public class DealershipController {
     @GetMapping("/{id}/premium-summary")
     public ResponseEntity<DealershipPremiumSummaryDto> getPremiumSummary(@PathVariable UUID id) {
         return ResponseEntity.ok(dealershipService.getPremiumSummary(id));
+    }
+
+    /**
+     * Get dealer premium assignments for a dealership by ID.
+     */
+    @GetMapping("/{id}/premiums")
+    public ResponseEntity<List<DealerPremiumAssignmentDto>> getPremiumsByDealershipId(@PathVariable UUID id) {
+        return ResponseEntity.ok(dealershipService.getDealerPremiumAssignmentsByDealershipId(id));
+    }
+
+    /**
+     * Add a dealer premium assignment for a dealership.
+     */
+    @PostMapping("/{id}/premiums")
+    public ResponseEntity<DealerPremiumAssignmentDto> addDealerPremium(
+            @PathVariable UUID id,
+            @Valid @RequestBody AddDealerPremiumRequest request) {
+        return ResponseEntity.ok(dealershipService.addDealerPremium(id, request));
+    }
+
+    /**
+     * Update a dealer premium assignment. Assignment must belong to the given dealership.
+     */
+    @PutMapping("/{id}/premiums/{premiumId}")
+    public ResponseEntity<DealerPremiumAssignmentDto> updateDealerPremium(
+            @PathVariable UUID id,
+            @PathVariable UUID premiumId,
+            @Valid @RequestBody UpdateDealerPremiumRequest request) {
+        return ResponseEntity.ok(dealershipService.updateDealerPremium(id, premiumId, request));
+    }
+
+    /**
+     * Remove a dealer premium assignment. Assignment must belong to the given dealership.
+     */
+    @DeleteMapping("/{id}/premiums/{premiumId}")
+    public ResponseEntity<Void> removeDealerPremium(
+            @PathVariable UUID id,
+            @PathVariable UUID premiumId) {
+        dealershipService.removeDealerPremium(id, premiumId);
+        return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * Get users (members) for a dealership by ID.
+     */
+    @GetMapping("/{id}/users")
+    public ResponseEntity<List<UserAtDealershipDto>> getUsersByDealershipId(@PathVariable UUID id) {
+        return ResponseEntity.ok(dealershipService.getUsersByDealershipId(id));
     }
 
     @GetMapping

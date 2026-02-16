@@ -1,14 +1,20 @@
 package com.stockyourlot.service;
 
+import com.stockyourlot.dto.AddDealerPremiumRequest;
 import com.stockyourlot.dto.CreateDealershipRequest;
+import com.stockyourlot.dto.DealerPremiumRuleInput;
 import com.stockyourlot.dto.DealershipPremiumSummaryDto;
 import com.stockyourlot.dto.DealershipResponse;
 import com.stockyourlot.dto.DealerPremiumAssignmentDto;
+import com.stockyourlot.dto.UpdateDealerPremiumRequest;
 import com.stockyourlot.dto.UpdateDealershipRequest;
+import com.stockyourlot.dto.UserAtDealershipDto;
 import com.stockyourlot.entity.DealerPremium;
 import com.stockyourlot.entity.Dealership;
+import com.stockyourlot.entity.DealershipUser;
 import com.stockyourlot.repository.DealerPremiumRepository;
 import com.stockyourlot.repository.DealershipRepository;
+import com.stockyourlot.repository.DealershipUserRepository;
 import com.stockyourlot.repository.PurchasePremiumRepository;
 import com.stockyourlot.repository.PurchaseRepository;
 import org.springframework.http.HttpStatus;
@@ -31,15 +37,19 @@ public class DealershipService {
     private final PurchaseRepository purchaseRepository;
     private final PurchasePremiumRepository purchasePremiumRepository;
     private final DealerPremiumRepository dealerPremiumRepository;
+    private final DealershipUserRepository dealershipUserRepository;
     private final PremiumService premiumService;
 
     public DealershipService(DealershipRepository dealershipRepository, PurchaseRepository purchaseRepository,
                              PurchasePremiumRepository purchasePremiumRepository,
-                             DealerPremiumRepository dealerPremiumRepository, PremiumService premiumService) {
+                             DealerPremiumRepository dealerPremiumRepository,
+                             DealershipUserRepository dealershipUserRepository,
+                             PremiumService premiumService) {
         this.dealershipRepository = dealershipRepository;
         this.purchaseRepository = purchaseRepository;
         this.purchasePremiumRepository = purchasePremiumRepository;
         this.dealerPremiumRepository = dealerPremiumRepository;
+        this.dealershipUserRepository = dealershipUserRepository;
         this.premiumService = premiumService;
     }
 
@@ -84,9 +94,60 @@ public class DealershipService {
         return new DealershipPremiumSummaryDto(purchasesThisMonth, totalPremiums, totalPremiums);
     }
 
+    @Transactional(readOnly = true)
+    public List<DealerPremiumAssignmentDto> getDealerPremiumAssignmentsByDealershipId(UUID dealershipId) {
+        if (!dealershipRepository.existsById(dealershipId)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Dealership not found: " + dealershipId);
+        }
+        return dealerPremiumRepository.findByDealership_IdWithRuleOrderByLevelDesc(dealershipId)
+                .stream()
+                .map(this::toDealerPremiumAssignmentDto)
+                .toList();
+    }
+
+    @Transactional
+    public DealerPremiumAssignmentDto addDealerPremium(UUID dealershipId, AddDealerPremiumRequest request) {
+        Dealership dealership = dealershipRepository.findById(dealershipId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Dealership not found: " + dealershipId));
+        DealerPremiumRuleInput input = new DealerPremiumRuleInput(
+                request.ruleId(),
+                request.startDate(),
+                request.endDate(),
+                request.level(),
+                request.numberOfSales());
+        DealerPremium dp = premiumService.addDealerPremium(dealership, input);
+        return toDealerPremiumAssignmentDto(dp);
+    }
+
+    @Transactional
+    public DealerPremiumAssignmentDto updateDealerPremium(UUID dealershipId, UUID premiumId, UpdateDealerPremiumRequest request) {
+        DealerPremium dp = premiumService.updateDealerPremium(dealershipId, premiumId, request);
+        return toDealerPremiumAssignmentDto(dp);
+    }
+
+    @Transactional
+    public void removeDealerPremium(UUID dealershipId, UUID premiumId) {
+        premiumService.deleteDealerPremium(dealershipId, premiumId);
+    }
+
+    @Transactional(readOnly = true)
+    public List<UserAtDealershipDto> getUsersByDealershipId(UUID dealershipId) {
+        dealershipRepository.findById(dealershipId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Dealership not found: " + dealershipId));
+        return dealershipUserRepository.findByDealership_IdWithUser(dealershipId)
+                .stream()
+                .map(du -> new UserAtDealershipDto(
+                        du.getUser().getId(),
+                        du.getUser().getUsername(),
+                        du.getUser().getEmail(),
+                        du.getDealershipRole()))
+                .toList();
+    }
+
     private DealerPremiumAssignmentDto toDealerPremiumAssignmentDto(DealerPremium dp) {
         var rule = dp.getRule();
         return new DealerPremiumAssignmentDto(
+                dp.getId(),
                 rule != null ? rule.getId() : null,
                 rule != null ? rule.getAmount() : null,
                 rule != null ? rule.getPremiumType() : null,

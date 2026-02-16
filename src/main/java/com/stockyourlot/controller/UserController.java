@@ -2,7 +2,13 @@ package com.stockyourlot.controller;
 
 import com.stockyourlot.dto.AddDealershipUserRequest;
 import com.stockyourlot.dto.AddRoleRequest;
+import com.stockyourlot.dto.AddUserCommissionRequest;
+import com.stockyourlot.dto.AddUserDealershipRequest;
+import com.stockyourlot.dto.DealershipRoleDto;
+import com.stockyourlot.dto.UpdateUserCommissionRequest;
+import com.stockyourlot.dto.UpdateUserDealershipRequest;
 import com.stockyourlot.dto.UpdateUserRequest;
+import com.stockyourlot.dto.UserCommissionAssignmentDto;
 import com.stockyourlot.dto.UserRolesResponse;
 import com.stockyourlot.dto.UserWithRolesDto;
 import com.stockyourlot.entity.User;
@@ -38,6 +44,75 @@ public class UserController {
     @GetMapping("/{id}")
     public ResponseEntity<UserWithRolesDto> getUserById(@PathVariable UUID id) {
         return ResponseEntity.ok(userService.getById(id));
+    }
+
+    /**
+     * Get dealership roles (memberships) for a user by ID.
+     */
+    @GetMapping("/{id}/dealerships")
+    public ResponseEntity<List<DealershipRoleDto>> getDealershipRolesByUserId(@PathVariable UUID id) {
+        return ResponseEntity.ok(userService.getDealershipRolesByUserId(id));
+    }
+
+    /**
+     * Add a user to a dealership (by user id). If already a member, updates the role.
+     */
+    @PostMapping("/{id}/dealerships")
+    public ResponseEntity<DealershipRoleDto> addUserDealership(
+            @PathVariable UUID id,
+            @Valid @RequestBody AddUserDealershipRequest request) {
+        return ResponseEntity.ok(userService.addUserDealership(id, request.dealershipId(), request.role()));
+    }
+
+    /**
+     * Update a user's role at a dealership. User must already be a member.
+     */
+    @PutMapping("/{id}/dealerships/{dealershipId}")
+    public ResponseEntity<DealershipRoleDto> updateUserDealership(
+            @PathVariable UUID id,
+            @PathVariable UUID dealershipId,
+            @Valid @RequestBody UpdateUserDealershipRequest request) {
+        return ResponseEntity.ok(userService.updateUserDealership(id, dealershipId, request.role()));
+    }
+
+    /**
+     * Get commission assignments for a user by ID.
+     */
+    @GetMapping("/{id}/commissions")
+    public ResponseEntity<List<UserCommissionAssignmentDto>> getCommissionsByUserId(@PathVariable UUID id) {
+        return ResponseEntity.ok(userService.getCommissionAssignmentsByUserId(id));
+    }
+
+    /**
+     * Add a commission assignment for a user (by user id).
+     */
+    @PostMapping("/{id}/commissions")
+    public ResponseEntity<UserCommissionAssignmentDto> addUserCommission(
+            @PathVariable UUID id,
+            @Valid @RequestBody AddUserCommissionRequest request) {
+        return ResponseEntity.ok(userService.addUserCommission(id, request));
+    }
+
+    /**
+     * Update a user commission assignment. Assignment must belong to the given user.
+     */
+    @PutMapping("/{id}/commissions/{commissionId}")
+    public ResponseEntity<UserCommissionAssignmentDto> updateUserCommission(
+            @PathVariable UUID id,
+            @PathVariable UUID commissionId,
+            @Valid @RequestBody UpdateUserCommissionRequest request) {
+        return ResponseEntity.ok(userService.updateUserCommission(id, commissionId, request));
+    }
+
+    /**
+     * Remove a user commission assignment. Assignment must belong to the given user.
+     */
+    @DeleteMapping("/{id}/commissions/{commissionId}")
+    public ResponseEntity<Void> removeUserCommission(
+            @PathVariable UUID id,
+            @PathVariable UUID commissionId) {
+        userService.removeUserCommission(id, commissionId);
+        return ResponseEntity.noContent().build();
     }
 
     /**

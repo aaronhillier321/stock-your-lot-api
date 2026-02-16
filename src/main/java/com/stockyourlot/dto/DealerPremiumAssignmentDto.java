@@ -11,6 +11,7 @@ import java.util.UUID;
  * Dealer premium assignment in API responses (rule details + start/end, level, status).
  */
 public record DealerPremiumAssignmentDto(
+        UUID id,
         UUID ruleId,
         BigDecimal ruleAmount,
         PremiumType rulePremiumType,

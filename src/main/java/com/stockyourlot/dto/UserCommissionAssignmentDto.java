@@ -11,6 +11,7 @@ import java.util.UUID;
  * User commission assignment in API responses (rule details + start/end, level, status).
  */
 public record UserCommissionAssignmentDto(
+        UUID id,
         UUID ruleId,
         BigDecimal ruleAmount,
         CommissionType ruleCommissionType,

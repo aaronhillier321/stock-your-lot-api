@@ -8,15 +8,20 @@ import org.springframework.data.repository.query.Param;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 public interface UserCommissionRepository extends JpaRepository<UserCommission, UUID> {
+
+    Optional<UserCommission> findByUser_IdAndId(UUID userId, UUID id);
 
     /**
      * Active assignments for a user, ordered by level descending (highest first).
      * Used to get effective rule and to process expiry on purchase.
      */
     List<UserCommission> findByUser_IdAndStatusOrderByLevelDesc(UUID userId, UserCommissionStatus status);
+
+    boolean existsByUser_IdAndStatusAndLevel(UUID userId, UserCommissionStatus status, int level);
 
     /**
      * Same as above but with rule eagerly loaded (for recordCommissionsForPurchase).

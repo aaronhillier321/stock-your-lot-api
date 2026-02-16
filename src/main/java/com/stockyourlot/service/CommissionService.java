@@ -3,6 +3,7 @@ package com.stockyourlot.service;
 import com.stockyourlot.dto.CommissionRuleResponse;
 import com.stockyourlot.dto.CreateCommissionRuleRequest;
 import com.stockyourlot.dto.UpdateCommissionRuleRequest;
+import com.stockyourlot.dto.UpdateUserCommissionRequest;
 import com.stockyourlot.dto.UserCommissionRuleInput;
 import com.stockyourlot.entity.CommissionRule;
 import com.stockyourlot.entity.CommissionType;
@@ -103,16 +104,67 @@ public class CommissionService {
             if (rule == null) {
                 return Optional.of("Commission rule not found: " + input.ruleId());
             }
+            int level = input.levelOrDefault();
+            if (userCommissionRepository.existsByUser_IdAndStatusAndLevel(user.getId(), UserCommissionStatus.ACTIVE, level)) {
+                return Optional.of("User already has an active commission rule at level " + level + ". Only one active rule per level is allowed.");
+            }
             UserCommission uc = new UserCommission();
             uc.setUser(user);
             uc.setRule(rule);
             uc.setStartDate(input.startDate());
             uc.setEndDate(input.endDate());
-            uc.setLevel(input.levelOrDefault());
+            uc.setLevel(level);
             uc.setNumberOfSales(input.numberOfSales());
             userCommissionRepository.save(uc);
         }
         return Optional.empty();
+    }
+
+    /**
+     * Add a single commission assignment for a user. Validates rule exists and no active assignment at same level.
+     * @return The created UserCommission
+     */
+    @Transactional
+    public UserCommission addUserCommission(User user, UserCommissionRuleInput input) {
+        CommissionRule rule = commissionRuleRepository.findById(input.ruleId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Commission rule not found: " + input.ruleId()));
+        int level = input.levelOrDefault();
+        if (userCommissionRepository.existsByUser_IdAndStatusAndLevel(user.getId(), UserCommissionStatus.ACTIVE, level)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "User already has an active commission rule at level " + level + ". Only one active rule per level is allowed.");
+        }
+        UserCommission uc = new UserCommission();
+        uc.setUser(user);
+        uc.setRule(rule);
+        uc.setStartDate(input.startDate());
+        uc.setEndDate(input.endDate());
+        uc.setLevel(level);
+        uc.setNumberOfSales(input.numberOfSales());
+        return userCommissionRepository.save(uc);
+    }
+
+    /**
+     * Update an existing user commission assignment. Assignment must belong to the given user.
+     */
+    @Transactional
+    public UserCommission updateUserCommission(UUID userId, UUID commissionId, UpdateUserCommissionRequest request) {
+        UserCommission uc = userCommissionRepository.findByUser_IdAndId(userId, commissionId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User commission not found: " + commissionId));
+        if (request.startDate() != null) uc.setStartDate(request.startDate());
+        if (request.endDate() != null) uc.setEndDate(request.endDate());
+        if (request.level() != null && request.level() >= 0) uc.setLevel(request.level());
+        if (request.numberOfSales() != null) uc.setNumberOfSales(request.numberOfSales());
+        return userCommissionRepository.save(uc);
+    }
+
+    /**
+     * Delete a user commission assignment. Assignment must belong to the given user.
+     */
+    @Transactional
+    public void deleteUserCommission(UUID userId, UUID commissionId) {
+        UserCommission uc = userCommissionRepository.findByUser_IdAndId(userId, commissionId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User commission not found: " + commissionId));
+        userCommissionRepository.delete(uc);
     }
 
     /**

@@ -1,6 +1,8 @@
 package com.stockyourlot.service;
 
+import com.stockyourlot.dto.AddUserCommissionRequest;
 import com.stockyourlot.dto.DealershipRoleDto;
+import com.stockyourlot.dto.UpdateUserCommissionRequest;
 import com.stockyourlot.dto.UpdateUserRequest;
 import com.stockyourlot.dto.UserCommissionAssignmentDto;
 import com.stockyourlot.dto.UserCommissionRuleInput;
@@ -83,22 +85,57 @@ public class UserService {
     public User addUserToDealership(String email, UUID dealershipId, String role) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found: " + email));
+        addUserDealership(user.getId(), dealershipId, role);
+        return userRepository.findById(user.getId()).orElseThrow();
+    }
+
+    /**
+     * Add a user (by id) to a dealership with the given role. If already a member, updates the role.
+     * @return The created or updated membership as DealershipRoleDto
+     */
+    @Transactional
+    public DealershipRoleDto addUserDealership(UUID userId, UUID dealershipId, String role) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found: " + userId));
         Dealership dealership = dealershipRepository.findById(dealershipId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Dealership not found: " + dealershipId));
 
         String dealershipRole = (role != null && (role.equals("ADMIN") || role.equals("BUYER")))
                 ? role : DEFAULT_DEALERSHIP_ROLE;
 
-        var existing = dealershipUserRepository.findByUser_IdAndDealership_Id(user.getId(), dealershipId);
+        var existing = dealershipUserRepository.findByUser_IdAndDealership_Id(userId, dealershipId);
+        DealershipUser du;
         if (existing.isPresent()) {
-            DealershipUser du = existing.get();
+            du = existing.get();
             du.setDealershipRole(dealershipRole);
             dealershipUserRepository.save(du);
         } else {
-            user.getDealershipUsers().add(new DealershipUser(user, dealership, dealershipRole));
+            du = new DealershipUser(user, dealership, dealershipRole);
+            user.getDealershipUsers().add(du);
             userRepository.save(user);
         }
-        return userRepository.findById(user.getId()).orElseThrow();
+        return new DealershipRoleDto(dealership.getId(), dealership.getName(), du.getDealershipRole());
+    }
+
+    /**
+     * Update a user's role at a dealership. Membership must already exist.
+     * @return The updated membership as DealershipRoleDto
+     */
+    @Transactional
+    public DealershipRoleDto updateUserDealership(UUID userId, UUID dealershipId, String role) {
+        if (!userRepository.existsById(userId)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found: " + userId);
+        }
+        if (!dealershipRepository.existsById(dealershipId)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Dealership not found: " + dealershipId);
+        }
+        DealershipUser du = dealershipUserRepository.findByUser_IdAndDealership_Id(userId, dealershipId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User is not a member of this dealership"));
+        if (role != null && (role.equals("ADMIN") || role.equals("BUYER"))) {
+            du.setDealershipRole(role);
+            dealershipUserRepository.save(du);
+        }
+        return new DealershipRoleDto(du.getDealership().getId(), du.getDealership().getName(), du.getDealershipRole());
     }
 
     /**
@@ -190,6 +227,70 @@ public class UserService {
     }
 
     /**
+     * Returns dealership memberships (roles) for a user by ID.
+     * @throws ResponseStatusException 404 if user not found
+     */
+    @Transactional(readOnly = true)
+    public List<DealershipRoleDto> getDealershipRolesByUserId(UUID id) {
+        User user = userRepository.findByIdWithDealershipUsers(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found: " + id));
+        return user.getDealershipUsers().stream()
+                .map(du -> new DealershipRoleDto(
+                        du.getDealership().getId(),
+                        du.getDealership().getName(),
+                        du.getDealershipRole()))
+                .toList();
+    }
+
+    /**
+     * Get all commission assignments for a user by ID.
+     */
+    @Transactional(readOnly = true)
+    public List<UserCommissionAssignmentDto> getCommissionAssignmentsByUserId(UUID id) {
+        if (!userRepository.existsById(id)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found: " + id);
+        }
+        return userCommissionRepository.findByUser_IdWithRuleOrderByLevelDesc(id)
+                .stream()
+                .map(this::toUserCommissionAssignmentDto)
+                .toList();
+    }
+
+    /**
+     * Add a commission assignment for a user (by user id).
+     */
+    @Transactional
+    public UserCommissionAssignmentDto addUserCommission(UUID userId, AddUserCommissionRequest request) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found: " + userId));
+        UserCommissionRuleInput input = new UserCommissionRuleInput(
+                request.ruleId(),
+                request.startDate(),
+                request.endDate(),
+                request.level(),
+                request.numberOfSales());
+        UserCommission uc = commissionService.addUserCommission(user, input);
+        return toUserCommissionAssignmentDto(uc);
+    }
+
+    /**
+     * Update a user commission assignment. Assignment must belong to the given user.
+     */
+    @Transactional
+    public UserCommissionAssignmentDto updateUserCommission(UUID userId, UUID commissionId, UpdateUserCommissionRequest request) {
+        UserCommission uc = commissionService.updateUserCommission(userId, commissionId, request);
+        return toUserCommissionAssignmentDto(uc);
+    }
+
+    /**
+     * Remove a user commission assignment. Assignment must belong to the given user.
+     */
+    @Transactional
+    public void removeUserCommission(UUID userId, UUID commissionId) {
+        commissionService.deleteUserCommission(userId, commissionId);
+    }
+
+    /**
      * Returns a user by ID with global roles, dealership memberships, and all commission rule assignments.
      * @throws ResponseStatusException 404 if not found
      */
@@ -221,6 +322,7 @@ public class UserService {
     private UserCommissionAssignmentDto toUserCommissionAssignmentDto(UserCommission uc) {
         var rule = uc.getRule();
         return new UserCommissionAssignmentDto(
+                uc.getId(),
                 rule != null ? rule.getId() : null,
                 rule != null ? rule.getAmount() : null,
                 rule != null ? rule.getCommissionType() : null,

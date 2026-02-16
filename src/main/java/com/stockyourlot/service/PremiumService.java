@@ -3,6 +3,7 @@ package com.stockyourlot.service;
 import com.stockyourlot.dto.DealerPremiumRuleInput;
 import com.stockyourlot.dto.PremiumRuleResponse;
 import com.stockyourlot.dto.CreatePremiumRuleRequest;
+import com.stockyourlot.dto.UpdateDealerPremiumRequest;
 import com.stockyourlot.dto.UpdatePremiumRuleRequest;
 import com.stockyourlot.entity.*;
 import com.stockyourlot.repository.DealerPremiumRepository;
@@ -102,6 +103,52 @@ public class PremiumService {
             dealerPremiumRepository.save(dp);
         }
         return Optional.empty();
+    }
+
+    /**
+     * Add a single dealer premium assignment for a dealership. Validates rule exists and no active assignment at same level.
+     */
+    @Transactional
+    public DealerPremium addDealerPremium(Dealership dealership, DealerPremiumRuleInput input) {
+        PremiumRule rule = premiumRuleRepository.findById(input.ruleId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Premium rule not found: " + input.ruleId()));
+        int level = input.levelOrDefault();
+        if (dealerPremiumRepository.existsByDealership_IdAndStatusAndLevel(dealership.getId(), DealerPremiumStatus.ACTIVE, level)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Dealership already has an active premium rule at level " + level + ". Only one active rule per level is allowed.");
+        }
+        DealerPremium dp = new DealerPremium();
+        dp.setDealership(dealership);
+        dp.setRule(rule);
+        dp.setStartDate(input.startDate());
+        dp.setEndDate(input.endDate());
+        dp.setLevel(level);
+        dp.setNumberOfSales(input.numberOfSales());
+        return dealerPremiumRepository.save(dp);
+    }
+
+    /**
+     * Update an existing dealer premium assignment. Assignment must belong to the given dealership.
+     */
+    @Transactional
+    public DealerPremium updateDealerPremium(UUID dealershipId, UUID premiumId, UpdateDealerPremiumRequest request) {
+        DealerPremium dp = dealerPremiumRepository.findByDealership_IdAndId(dealershipId, premiumId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Dealer premium not found: " + premiumId));
+        if (request.startDate() != null) dp.setStartDate(request.startDate());
+        if (request.endDate() != null) dp.setEndDate(request.endDate());
+        if (request.level() != null && request.level() >= 0) dp.setLevel(request.level());
+        if (request.numberOfSales() != null) dp.setNumberOfSales(request.numberOfSales());
+        return dealerPremiumRepository.save(dp);
+    }
+
+    /**
+     * Delete a dealer premium assignment. Assignment must belong to the given dealership.
+     */
+    @Transactional
+    public void deleteDealerPremium(UUID dealershipId, UUID premiumId) {
+        DealerPremium dp = dealerPremiumRepository.findByDealership_IdAndId(dealershipId, premiumId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Dealer premium not found: " + premiumId));
+        dealerPremiumRepository.delete(dp);
     }
 
     @Transactional(readOnly = true)

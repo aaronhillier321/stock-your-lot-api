@@ -8,9 +8,14 @@ import org.springframework.data.repository.query.Param;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 public interface DealerPremiumRepository extends JpaRepository<DealerPremium, UUID> {
+
+    Optional<DealerPremium> findByDealership_IdAndId(UUID dealershipId, UUID id);
+
+    boolean existsByDealership_IdAndStatusAndLevel(UUID dealershipId, DealerPremiumStatus status, int level);
 
     List<DealerPremium> findByDealership_IdAndStatusOrderByLevelDesc(UUID dealershipId, DealerPremiumStatus status);
 
