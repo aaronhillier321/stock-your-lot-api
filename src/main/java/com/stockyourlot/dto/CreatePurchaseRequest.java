@@ -1,5 +1,6 @@
 package com.stockyourlot.dto;
 
+import com.stockyourlot.entity.PurchaseStatus;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
@@ -8,6 +9,8 @@ import java.time.LocalDate;
 import java.util.UUID;
 
 public record CreatePurchaseRequest(
+        /** Optional. One of CONFIRMED, IN_TRANSPORT, PENDING_PAYMENT, PAID. Defaults to CONFIRMED if null. */
+        PurchaseStatus status,
         @NotNull(message = "dealershipId must not be null")
         UUID dealershipId,
         @NotNull(message = "date must not be null")

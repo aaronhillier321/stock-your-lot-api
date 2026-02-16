@@ -57,6 +57,10 @@ public class Purchase {
     @Column(name = "transport_quote", precision = 12, scale = 2)
     private BigDecimal transportQuote;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false, length = 30)
+    private PurchaseStatus status = PurchaseStatus.CONFIRMED;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
@@ -177,6 +181,14 @@ public class Purchase {
 
     public void setTransportQuote(BigDecimal transportQuote) {
         this.transportQuote = transportQuote;
+    }
+
+    public PurchaseStatus getStatus() {
+        return status;
+    }
+
+    public void setStatus(PurchaseStatus status) {
+        this.status = status != null ? status : PurchaseStatus.CONFIRMED;
     }
 
     public Instant getCreatedAt() {

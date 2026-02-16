@@ -1,5 +1,6 @@
 package com.stockyourlot.dto;
 
+import com.stockyourlot.entity.PurchaseStatus;
 import jakarta.validation.constraints.Size;
 
 import java.math.BigDecimal;
@@ -10,6 +11,7 @@ import java.util.UUID;
  * Request body for updating a purchase. All fields optional; only provided fields are updated.
  */
 public record UpdatePurchaseRequest(
+        PurchaseStatus status,
         UUID dealershipId,
         LocalDate date,
         @Size(max = 100)

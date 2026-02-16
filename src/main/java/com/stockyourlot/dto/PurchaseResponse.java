@@ -1,11 +1,12 @@
 package com.stockyourlot.dto;
 
+import com.stockyourlot.entity.PurchaseStatus;
+
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
-
 
 public record PurchaseResponse(
         UUID id,
@@ -15,6 +16,7 @@ public record PurchaseResponse(
         UUID dealershipId,
         String dealershipName,
         LocalDate date,
+        PurchaseStatus status,
         String auctionPlatform,
         String vin,
         Integer miles,

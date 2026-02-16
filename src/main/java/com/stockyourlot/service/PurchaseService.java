@@ -7,6 +7,7 @@ import com.stockyourlot.dto.UpdatePurchaseRequest;
 import com.stockyourlot.entity.Dealership;
 import com.stockyourlot.entity.Purchase;
 import com.stockyourlot.entity.PurchaseCommission;
+import com.stockyourlot.entity.PurchaseStatus;
 import com.stockyourlot.entity.User;
 import com.stockyourlot.service.FileMetadataService.BillAndConditionReportFileIds;
 import com.stockyourlot.repository.DealershipRepository;
@@ -119,6 +120,7 @@ public class PurchaseService {
         p.setVehicleModel(request.vehicleModel());
         p.setVehicleTrimLevel(request.vehicleTrimLevel());
         p.setTransportQuote(request.transportQuote());
+        p.setStatus(request.status() != null ? request.status() : PurchaseStatus.CONFIRMED);
         p = purchaseRepository.save(p);
         if (request.uploadToken() != null) {
             try {
@@ -154,6 +156,7 @@ public class PurchaseService {
         if (request.vehicleModel() != null) p.setVehicleModel(request.vehicleModel());
         if (request.vehicleTrimLevel() != null) p.setVehicleTrimLevel(request.vehicleTrimLevel());
         if (request.transportQuote() != null) p.setTransportQuote(request.transportQuote());
+        if (request.status() != null) p.setStatus(request.status());
         p = purchaseRepository.save(p);
         Map<UUID, BillAndConditionReportFileIds> fileIdsMap = fileMetadataService.getBillAndConditionReportFileIdsByPurchaseIds(List.of(p.getId()));
         return toResponse(p, fileIdsMap.getOrDefault(p.getId(), new BillAndConditionReportFileIds(null, null)), List.of(), null);
@@ -196,6 +199,7 @@ public class PurchaseService {
                 d != null ? d.getId() : null,
                 d != null ? d.getName() : null,
                 p.getPurchaseDate(),
+                p.getStatus() != null ? p.getStatus() : PurchaseStatus.CONFIRMED,
                 p.getAuctionPlatform(),
                 p.getVin(),
                 p.getMiles(),
