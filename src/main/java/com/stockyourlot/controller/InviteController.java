@@ -33,9 +33,17 @@ public class InviteController {
     public ResponseEntity<Void> createInvite(
             @Valid @RequestBody InviteRequest request,
             @AuthenticationPrincipal Object principal) {
-        log.info("Create invite request: email={}, dealershipId={}", request.email(), request.dealershipId());
+        log.info("Create invite request: email={}, dealershipId={}, firstName={}, lastName={}, phoneNumber={}, role={}",
+                request.email(), request.dealershipId(), request.firstName(), request.lastName(), request.phoneNumber(), request.role());
         User inviter = principal instanceof User ? (User) principal : null;
-        inviteService.invite(request.email(), request.dealershipId(), inviter);
+        inviteService.invite(
+                request.email(),
+                request.dealershipId(),
+                request.firstName(),
+                request.lastName(),
+                request.phoneNumber(),
+                request.role(),
+                inviter);
         log.info("Invite created and email sent for email={}", request.email());
         return ResponseEntity.status(HttpStatus.CREATED).build();
     }

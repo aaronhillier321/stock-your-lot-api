@@ -33,7 +33,7 @@ public class Invite {
     private User user;
 
     @ManyToOne(fetch = FetchType.EAGER)
-    @JoinColumn(name = "dealership_id", nullable = false)
+    @JoinColumn(name = "dealership_id")
     private Dealership dealership;
 
     @Column(name = "created_at", nullable = false, updatable = false)

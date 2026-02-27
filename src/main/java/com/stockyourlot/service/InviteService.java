@@ -21,6 +21,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -62,24 +63,40 @@ public class InviteService {
     /**
      * Invite an email to a specific dealership. Creates a PENDING user if needed, creates an invite token, sends email.
      *
-     * @param email        the email to invite
-     * @param dealershipId the dealership the invite is for
+     * @param email        the email to invite (required)
+     * @param dealershipId the dealership the invite is for (optional; null for global invite)
+     * @param firstName    optional first name to store on the pending user
+     * @param lastName     optional last name to store on the pending user
+     * @param phoneNumber  optional phone number to store on the pending user
+     * @param role         optional global role (BUYER / DEALER / ADMIN); defaults to BUYER if null/invalid
      * @param inviter      the user sending the invite (can be null for system invites)
      */
     @Transactional
-    public void invite(String email, UUID dealershipId, User inviter) {
-        log.debug("invite: email={}, dealershipId={}, inviter={}", email, dealershipId, inviter != null ? inviter.getEmail() : "null");
+    public void invite(String email,
+                       UUID dealershipId,
+                       String firstName,
+                       String lastName,
+                       String phoneNumber,
+                       String role,
+                       User inviter) {
+        log.debug("invite: email={}, dealershipId={}, firstName={}, lastName={}, phoneNumber={}, role={}, inviter={}",
+                email, dealershipId, firstName, lastName, phoneNumber, role, inviter != null ? inviter.getEmail() : "null");
         email = email != null ? email.trim().toLowerCase() : "";
         if (email.isEmpty()) {
             log.warn("invite: rejected - empty email");
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email is required");
         }
-        Dealership dealership = dealershipRepository.findById(dealershipId)
-                .orElseThrow(() -> {
-                    log.warn("invite: dealership not found, id={}", dealershipId);
-                    return new ResponseStatusException(HttpStatus.NOT_FOUND, "Dealership not found: " + dealershipId);
-                });
-        log.debug("invite: dealership found id={}, name={}", dealership.getId(), dealership.getName());
+        Dealership dealership = null;
+        if (dealershipId != null) {
+            dealership = dealershipRepository.findById(dealershipId)
+                    .orElseThrow(() -> {
+                        log.warn("invite: dealership not found, id={}", dealershipId);
+                        return new ResponseStatusException(HttpStatus.NOT_FOUND, "Dealership not found: " + dealershipId);
+                    });
+            log.debug("invite: dealership found id={}, name={}", dealership.getId(), dealership.getName());
+        } else {
+            log.debug("invite: no dealershipId provided (global invite)");
+        }
 
         User existing = userRepository.findByEmail(email).orElse(null);
         if (existing != null && "ACTIVE".equals(existing.getStatus())) {
@@ -101,9 +118,22 @@ public class InviteService {
             }
         } else {
             user = new User(email, null, "PENDING");
-            Role userRole = roleRepository.findByName("BUYER")
+            String normalizedRole = role != null ? role.trim().toUpperCase() : "BUYER";
+            if (!Set.of("BUYER", "DEALER", "ADMIN").contains(normalizedRole)) {
+                normalizedRole = "BUYER";
+            }
+            Role userRole = roleRepository.findByName(normalizedRole)
                     .orElseThrow(() -> new IllegalStateException("Role BUYER not found"));
             user.getRoles().add(userRole);
+            if (firstName != null && !firstName.isBlank()) {
+                user.setFirstName(firstName.trim());
+            }
+            if (lastName != null && !lastName.isBlank()) {
+                user.setLastName(lastName.trim());
+            }
+            if (phoneNumber != null && !phoneNumber.isBlank()) {
+                user.setPhoneNumber(phoneNumber.trim());
+            }
             user = userRepository.save(user);
             log.info("invite: created pending user id={} for email={}", user.getId(), email);
         }
@@ -147,8 +177,13 @@ public class InviteService {
             return InviteValidateResponse.invalid("This invite link has expired");
         }
         Dealership d = invite.getDealership();
-        log.info("validateToken: valid for email={}, dealershipId={}, dealershipName={}", invite.getEmail(), d.getId(), d.getName());
-        return InviteValidateResponse.valid(invite.getEmail(), d.getId(), d.getName());
+        if (d != null) {
+            log.info("validateToken: valid for email={}, dealershipId={}, dealershipName={}", invite.getEmail(), d.getId(), d.getName());
+            return InviteValidateResponse.valid(invite.getEmail(), d.getId(), d.getName());
+        } else {
+            log.info("validateToken: valid for email={}, no dealership (global invite)", invite.getEmail());
+            return InviteValidateResponse.valid(invite.getEmail(), null, null);
+        }
     }
 
     /**
@@ -187,7 +222,12 @@ public class InviteService {
         inviteRepository.save(invite);
         log.debug("acceptInvite: marked invite id={} as ACCEPTED", invite.getId());
 
-        userService.addUserToDealership(user.getEmail(), invite.getDealership().getId(), "BUYER");
-        log.info("acceptInvite: added user to dealership id={}, invite flow complete for email={}", invite.getDealership().getId(), user.getEmail());
+        Dealership dealership = invite.getDealership();
+        if (dealership != null) {
+            userService.addUserToDealership(user.getEmail(), dealership.getId(), "BUYER");
+            log.info("acceptInvite: added user to dealership id={}, invite flow complete for email={}", dealership.getId(), user.getEmail());
+        } else {
+            log.info("acceptInvite: no dealership on invite; activated user without dealership membership for email={}", user.getEmail());
+        }
     }
 }
